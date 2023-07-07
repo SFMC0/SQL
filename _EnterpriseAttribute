@@ -1,0 +1,7 @@
+SELECT
+      ea._SubscriberID                     AS SubscriberID
+    , ea.ProfileAttributeWithoutSpaces
+    , ea.[Profile Attribute With Spaces]   AS ProfileAttributeWithSpace
+    , ea.PreferenceAttributeWithoutSpaces
+    , ea.[Preference Attribute With Spaces]   AS PreferenceAttributeWithSpace
+FROM _EnterpriseAttribute AS ea

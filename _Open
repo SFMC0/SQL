@@ -1,0 +1,14 @@
+SELECT
+      opened.AccountID
+    , opened.OYBAccountID
+    , opened.JobID
+    , opened.ListID
+    , opened.BatchID
+    , opened.SubscriberID
+    , opened.SubscriberKey
+    , opened.EventDate
+    , opened.Domain
+    , opened.IsUnique
+    , opened.TriggererSendDefinitionObjectID
+    , opened.TriggeredSendCustomerKey
+FROM _Open AS opened

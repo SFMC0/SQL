@@ -1,0 +1,7 @@
+SELECT
+      buUnsub.BusinessUnitID
+    , buUnsub.SubscriberID
+    , buUnsub.SubscriberKey
+    , buUnsub.UnsubDateUTC
+    , buUnsub.UnsubReason
+FROM _BusinessUnitUnsubscribes AS buUnsub

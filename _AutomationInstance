@@ -1,0 +1,19 @@
+SELECT
+      automation.MemberID
+    , automation.AutomationName
+    , automation.AutomationDescription
+    , automation.AutomationCustomerKey
+    , automation.AutomationInstanceID
+    , automation.AutomationType
+    , automation.AutomationNotificationRecipient_Complete
+    , automation.AutomationNotificationRecipient_Error
+    , automation.AutomationNotificationRecipient_Skip
+    , automation.AutomationStepCount
+    , automation.AutomationInstanceIsRunOnce
+    , automation.FilenameFromTrigger
+    , automation.AutomationInstanceScheduledTime_UTC
+    , automation.AutomationInstanceStartTime_UTC
+    , automation.AutomationInstanceEndTime_UTC
+    , automation.AutomationInstanceStatus
+    , automation.AutomationInstanceActivityErrorDetails
+FROM _AutomationInstance AS automation

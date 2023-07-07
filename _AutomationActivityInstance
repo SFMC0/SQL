@@ -1,0 +1,16 @@
+SELECT
+      automationActivity.MemberID
+    , automationActivity.AutomationName
+    , automationActivity.AutomationCustomerKey
+    , automationActivity.AutomationInstanceID
+    , automationActivity.ActivityCustomerKey
+    , automationActivity.ActivityInstanceID
+    , automationActivity.ActivityType
+    , automationActivity.ActivityName
+    , automationActivity.ActivityDescription
+    , automationActivity.ActivityInstanceStep
+    , automationActivity.ActivityInstanceStartTime_UTC
+    , automationActivity.ActivityInstanceEndTime_UTC
+    , automationActivity.ActivityInstanceStatus
+    , automationActivity.ActivityInstanceStatusDetails
+FROM _AutomationActivityInstance AS automationActivity

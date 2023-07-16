@@ -1,0 +1,17 @@
+in UTC
+
+SELECT *
+FROM your_table
+WHERE DATE(CONVERT_TZ(timestamp_column, 'your_timezone', 'UTC')) = DATE(CONVERT_TZ(NOW(), 'your_timezone', 'UTC')) + INTERVAL 1 DAY
+  AND HOUR(CONVERT_TZ(timestamp_column, 'your_timezone', 'UTC')) = HOUR(CONVERT_TZ(NOW(), 'your_timezone', 'UTC')) + 1
+
+SELECT *
+FROM your_table
+WHERE DATE(timestamp_column) = CURDATE()
+  AND HOUR(timestamp_column) BETWEEN HOUR(NOW()) AND HOUR(NOW()) + 1
+
+
+SELECT column1, column2, ...
+FROM your_data_extension
+WHERE EventDate >= DATEADD(hh, DATEDIFF(hh, 0, GETDATE()), 0)
+  AND EventDate < DATEADD(hh, DATEDIFF(hh, 0, GETDATE()) + 1, 0)

@@ -15,3 +15,8 @@ SELECT column1, column2, ...
 FROM your_data_extension
 WHERE EventDate >= DATEADD(hh, DATEDIFF(hh, 0, GETDATE()), 0)
   AND EventDate < DATEADD(hh, DATEDIFF(hh, 0, GETDATE()) + 1, 0)
+
+SELECT *
+FROM ENT.[SchedulerEmail__c_Salesforce]
+WHERE Status__c in ('Rescheduled','Scheduled')
+AND convert(datetime2, MeetingStartTimeString__c, 105) = dateadd(d,1,getdate())

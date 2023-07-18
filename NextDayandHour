@@ -28,3 +28,11 @@ FROM ENT.[SchedulerEmail__c_Salesforce]
 WHERE Status__c IN ('Rescheduled', 'Scheduled')
 AND DATEADD(day, 1, CAST(MeetingStartTime__c AS DATE)) = DATEADD(hour, 24, GETDATE())
 
+
+
+SELECT *
+FROM ENT.[SchedulerEmail__c_Salesforce]
+WHERE Status__c IN ('Rescheduled', 'Scheduled')
+AND MeetingStartTime__c >= DATEADD(hour, 24, GETDATE())
+AND MeetingStartTime__c < DATEADD(hour, 25, GETDATE())
+

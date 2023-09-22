@@ -12,3 +12,19 @@ FROM (
     FROM ENT.Mid_Flatten_Acc_Con_Data_Nath AS t1
     GROUP BY sub_emailaddress
 ) AS Subquery
+
+SELECT TOP 10
+    sub_emailaddress AS emailaddress,
+    LEFT(Mid__c, LEN(Mid__c) - 1) AS MID
+FROM (
+    SELECT
+        sub_emailaddress,
+        (SELECT Mid__c + ',' AS [text()]
+         FROM ENT.Mid_Flatten_Acc_Con_Data_Nath AS t2
+         WHERE t1.sub_emailaddress = t2.sub_emailaddress
+         FOR XML PATH('')
+        ) AS Mid__c
+    FROM ENT.Mid_Flatten_Acc_Con_Data_Nath AS t1
+    GROUP BY sub_emailaddress
+    HAVING COUNT(Mid__c) <= 4
+) AS Subquery

@@ -1,0 +1,50 @@
+SELECT
+i.subscriberKey,
+COALESCE(c.crm_email_id, '') as crm_email_id,
+i.emailAddress,
+COALESCE(c.first_name, '') as first_name,
+RTRIM(CONCAT(COALESCE(c.first_name, ''), ' ', COALESCE(c.last_name, ''))) as full_name,
+COALESCE(dma.dma_name, '') as dma1,
+COALESCE(dma2.dma_name, '') as dma2,
+COALESCE(c.preference1_dma_id, 201) as dma1_id,
+COALESCE(c.preference2_dma_id, 201) as dma2_id,
+i.artistId,
+i.discoArtistId,
+i.artistName,
+i.onsaleDate,
+i.event_ids,
+LEFT(i.event_ids, CHARINDEX(',', CONCAT(i.event_ids, ',')) - 1) as event_id
+FROM TMAosRevTest_DO_Initial_v01_DEV i
+  INNER JOIN ENT.td_bi_dim_cust c WITH (NOLOCK) ON i.subscriberKey = c.cust_contact_key
+  LEFT JOIN ENT.td_bi_dim_dma dma WITH (NOLOCK) ON c.preference1_dma_id = dma.dma_id AND dma.del_flg = 'N'
+  LEFT JOIN ENT.td_bi_dim_dma dma2 WITH (NOLOCK) ON c.preference2_dma_id = dma2.dma_id AND dma2.del_flg = 'N'
+  LEFT JOIN ent.td_bi_fact_pref_newsltr pref_newsltr WITH (nolock) ON 
+          c.cust_contact_key               = pref_newsltr.cust_contact_key
+    AND pref_newsltr.newsltr_id            = 80030
+    AND pref_newsltr.newsltr_id_src_sys_cd = 'MEMBERDB'
+WHERE
+    COALESCE(pref_newsltr.opt_in_flg, 'Y') = 'Y'
+    AND COALESCE(pref_newsltr.del_flg, 'N') = 'N'
+    AND c.preferred_lang_ctry_cd = 'us'
+    AND
+    (
+        c.preference1_dma_id BETWEEN 201 AND 499
+        OR c.preference2_dma_id BETWEEN 201 AND 499
+    )
+    AND
+    (
+        c.member_ctry_cd = 222
+        OR c.member_ctry_cd IS NULL
+    )
+    AND c.del_flg = 'N'
+    AND NOT EXISTS
+    (
+        SELECT
+            1
+        FROM 
+            ENT.ab_exclusion_list_v01 exlist
+        WHERE 
+            exlist.list_name = 'Onboarding'
+            AND exlist.del_flg = 'N'
+            AND exlist.HMAC = c.cust_contact_key
+    )

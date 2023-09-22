@@ -1,0 +1,14 @@
+SELECT
+    Column1,
+    LEFT(Column2, LEN(Column2) - 1) AS Column2
+FROM (
+    SELECT
+        Column1,
+        (SELECT Column2 + ',' AS [text()]
+         FROM YourTable AS t2
+         WHERE t1.Column1 = t2.Column1
+         FOR XML PATH('')
+        ) AS Column2
+    FROM YourTable AS t1
+    GROUP BY Column1
+) AS Subquery;

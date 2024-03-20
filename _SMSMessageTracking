@@ -1,17 +1,23 @@
 SELECT
     CASE 
-        WHEN Name IN ('Welcome', 'Welcome_ReOptin') THEN 'Welcome_Welcome_ReOptin' 
+        WHEN Name IN ('MeetingScheduler_SMS_Welcome', 'MeetingScheduler_SMS_Welcome_ReOptIn','MeetingScheduler_SMS_ThankYou', 'MeetingScheduler_SMS_MissedMeeting', 'MeetingScheduler_SMS_48hrReminder_Confirmation', 'MeetingScheduler_SMS_2Hours_Reminder') THEN 'MeetingScheduler_Total_SMS_Delivered' 
+		WHEN Name IN ('MeetingScheduler_SMS_Welcome', 'MeetingScheduler_SMS_Welcome_ReOptIn') THEN 'MeetingScheduler_SMS_Welcome' 
+        WHEN Name IN ('MeetingScheduler_SMS_MissedMeeting', 'MeetingScheduler_SMS_ThankYou') THEN 'MeetingScheduler_SMS_PostMeeting' 
         ELSE Name 
-    END AS Name_Combined,
-    COUNT(*) AS SentCount
+    END AS Name,
+	SUM(0.5) AS SentCount
 FROM
     _SMSMessageTracking
 WHERE
-    EventDate >= DATEADD(day, -6, DATEADD(WEEK, DATEDIFF(WEEK, 0, GETDATE()), 0)) -- Get the starting date of the previous Monday
-    AND EventDate < DATEADD(day, 1, DATEADD(WEEK, DATEDIFF(WEEK, 0, GETDATE()), 0)) -- Get the starting date of the upcoming Monday
-    AND Status = 'Sent'
+    ShortCode = 76577
+    AND Name like 'MeetingScheduler_SMS_%'
+    AND ActionDateTime >= DATEADD(day, -6, DATEADD(WEEK, DATEDIFF(WEEK, 0, GETDATE()), 0)) 
+    AND ActionDateTime < DATEADD(day, 1, DATEADD(WEEK, DATEDIFF(WEEK, 0, GETDATE()), 0)) 
+    AND Delivered = 1
 GROUP BY
     CASE 
-        WHEN Name IN ('Welcome', 'Welcome_ReOptin') THEN 'Welcome_Welcome_ReOptin' 
+        WHEN Name IN ('MeetingScheduler_SMS_Welcome', 'MeetingScheduler_SMS_Welcome_ReOptIn','MeetingScheduler_SMS_ThankYou', 'MeetingScheduler_SMS_MissedMeeting', 'MeetingScheduler_SMS_48hrReminder_Confirmation', 'MeetingScheduler_SMS_2Hours_Reminder') THEN 'MeetingScheduler_Total_SMS_Delivered' 
+		WHEN Name IN ('MeetingScheduler_SMS_Welcome', 'MeetingScheduler_SMS_Welcome_ReOptIn') THEN 'MeetingScheduler_SMS_Welcome' 
+		WHEN Name IN ('MeetingScheduler_SMS_MissedMeeting', 'MeetingScheduler_SMS_ThankYou') THEN 'MeetingScheduler_SMS_PostMeeting' 
         ELSE Name 
     END

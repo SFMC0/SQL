@@ -75,9 +75,9 @@ FROM
 
 /* Sync DE */
 SELECT 
-    Contact__r:Id AS [LSSchedulerEmail__c:Contact__r:Id], 
-    Contact__r:Email AS [LSSchedulerEmail__c:Contact__r:Email], 
-    Contact__r:HasOptedOutOfEmail AS [LSSchedulerEmail__c:Contact__r:HasOptedOutOfEmail], 
+    Contact__c AS [LSSchedulerEmail__c:Contact__r:Id], 
+    ToEmail__c AS [LSSchedulerEmail__c:Contact__r:Email], 
+    EmailOptOut__c AS [LSSchedulerEmail__c:Contact__r:HasOptedOutOfEmail], 
     Id AS [LSSchedulerEmail__c:Id], 
     Banker_Email__c AS [LSSchedulerEmail__c:Banker_Email__c], 
     BankerName__c AS [LSSchedulerEmail__c:BankerName__c], 
@@ -143,6 +143,7 @@ SELECT
     XLobMeeting__c AS [LSSchedulerEmail__c:XLobMeeting__c], 
     XLOB_Meeting_Reason__c AS [LSSchedulerEmail__c:XLOB_Meeting_Reason__c] 
 FROM 
-    MeetingS
+    ENT.LSSchedulerEmail__c_Salesforce
 WHERE 
     CreatedDate >= DATEADD(MINUTE, -15, GETDATE())
+

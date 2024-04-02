@@ -144,3 +144,5 @@ SELECT
     XLOB_Meeting_Reason__c AS [LSSchedulerEmail__c:XLOB_Meeting_Reason__c] 
 FROM 
     MeetingS
+WHERE 
+    CreatedDate >= DATEADD(MINUTE, -15, GETDATE())

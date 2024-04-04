@@ -255,3 +255,13 @@ INNER JOIN _JourneyActivity AS ja
 INNER JOIN _Journey  AS j
         ON ja.VersionID = j.VersionID
         AND j.JOURNEYNAME like 'MeetingScheduler%'
+
+
+SELECT 
+    mse.Name,
+    CASE 
+        WHEN DATEDIFF(HOUR, mse.MeetingStartTime__c, DATEADD(HOUR, DATEDIFF(HOUR, 'Central Standard Time', 'UTC'), mse.LastModifiedDate)) < 24 THEN mse.Name
+        ELSE 'Not Dispositioned' 
+    END AS Disposition
+FROM 
+    MeetingScheduler_Main mse

@@ -241,6 +241,8 @@ INNER JOIN _Job AS job
 		ON job.JobID = NotSent.SendID
 		AND NotSent.TriggeredSendExternalKey = job.TriggeredSendCustomerKey
         AND DATEDIFF(MINUTE, MS.[LSSchedulerEmail__c:LastModifiedDate], DATEADD(MINUTE, DATEDIFF(MINUTE, 'Central Standard Time', 'UTC'), job.CreatedDate)) BETWEEN -15 AND 15
+/* 	DATEDIFF(MINUTE, DATEADD(MINUTE, DATEDIFF(MINUTE, 'Central Standard Time', 'UTC'), job.CreatedDate), MS.[LSSchedulerEmail__c:LastModifiedDate]) */ 
+
 INNER JOIN _JourneyActivity AS ja
         ON job.TriggererSendDefinitionObjectID = ja.JourneyActivityObjectID
 INNER JOIN _Journey  AS j

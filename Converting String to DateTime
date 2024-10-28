@@ -1,0 +1,28 @@
+SELECT 
+    col1,
+    col2,
+    DATEDIFF(
+        hour, 
+        col1, 
+        TRY_CONVERT(DATETIME, 
+            SUBSTRING(
+                col2, 
+                CHARINDEX(',', col2) + 2, 
+                LEN(col2) - CHARINDEX(',', col2) - 5
+            )
+        )
+    ) AS time_difference
+FROM 
+    your_table
+WHERE 
+    DATEDIFF(
+        hour, 
+        col1, 
+        TRY_CONVERT(DATETIME, 
+            SUBSTRING(
+                col2, 
+                CHARINDEX(',', col2) + 2, 
+                LEN(col2) - CHARINDEX(',', col2) - 5
+            )
+        )
+    ) < 4

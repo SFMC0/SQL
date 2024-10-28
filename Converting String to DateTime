@@ -163,3 +163,110 @@ WHERE
         )
     ) < 0
 	
+--4 PM 
+
+SELECT 
+    a.[LSSchedulerEmail__c:Contact__r:Id],
+    b.[LSSchedulerEmail__c:Contact__r:Email],
+    b.[LSSchedulerEmail__c:CreatedById],
+    b.[LSSchedulerEmail__c:CreatedDate],
+    b.[LSSchedulerEmail__c:LastModifiedById],
+    b.[LSSchedulerEmail__c:LastModifiedDate],
+    b.[LSSchedulerEmail__c:LastEditByUser__c],
+    b.[LSSchedulerEmail__c:Meeting__c],
+    b.[LSSchedulerEmail__c:MeetingAppointmentNumber__c],
+    b.[LSSchedulerEmail__c:MeetingEndTime__c],
+    b.[LSSchedulerEmail__c:MeetingID__c],
+    b.[LSSchedulerEmail__c:MeetingStartTime__c],
+    b.[LSSchedulerEmail__c:MeetingStartTimeString__c],
+    b.[LSSchedulerEmail__c:MeetingStartTimeStringSMS__c],
+    b.[LSSchedulerEmail__c:SystemModstamp],
+    b.[LSSchedulerEmail__c:TimeZone__c],
+    
+    -- Calculating time difference between two datetime values
+    DATEDIFF(
+        hour, 
+        a.[LSSchedulerEmail__c:MeetingStartTime__c], 
+        
+        -- Convert the string in MeetingStartTimeString__c to DATETIME
+        TRY_CONVERT(DATETIME, 
+            SUBSTRING(
+                a.[LSSchedulerEmail__c:MeetingStartTimeString__c], 
+                
+                -- Locate the starting point of the date string after the comma
+                CHARINDEX(',', a.[LSSchedulerEmail__c:MeetingStartTimeString__c]) + 2, 
+                
+                -- Set the length to exclude the time zone abbreviation if present
+                LEN(a.[LSSchedulerEmail__c:MeetingStartTimeString__c]) 
+                - CHARINDEX(',', a.[LSSchedulerEmail__c:MeetingStartTimeString__c]) - 4
+            )
+        )
+    ) AS time_difference
+
+FROM 
+    MeetingScheduler_Main a
+    INNER JOIN AnotherTable b ON a.[SomeID] = b.[SomeID]  -- Update join as per actual table relationships
+
+WHERE 
+    -- Filter rows where the time difference is negative
+    DATEDIFF(
+        hour, 
+        a.[LSSchedulerEmail__c:MeetingStartTime__c], 
+        
+        TRY_CONVERT(DATETIME, 
+            SUBSTRING(
+                a.[LSSchedulerEmail__c:MeetingStartTimeString__c], 
+                CHARINDEX(',', a.[LSSchedulerEmail__c:MeetingStartTimeString__c]) + 2, 
+                LEN(a.[LSSchedulerEmail__c:MeetingStartTimeString__c]) - CHARINDEX(',', a.[LSSchedulerEmail__c:MeetingStartTimeString__c]) - 4
+            )
+        )
+    ) < 0
+
+
+-- 
+SELECT 
+    a.[LSSchedulerEmail__c:Contact__r:Id],
+    b.[LSSchedulerEmail__c:Contact__r:Email],
+    b.[LSSchedulerEmail__c:CreatedById],
+    b.[LSSchedulerEmail__c:CreatedDate],
+    b.[LSSchedulerEmail__c:LastModifiedById],
+    b.[LSSchedulerEmail__c:LastModifiedDate],
+    b.[LSSchedulerEmail__c:LastEditByUser__c],
+    b.[LSSchedulerEmail__c:Meeting__c],
+    b.[LSSchedulerEmail__c:MeetingAppointmentNumber__c],
+    b.[LSSchedulerEmail__c:MeetingEndTime__c],
+    b.[LSSchedulerEmail__c:MeetingID__c],
+    b.[LSSchedulerEmail__c:MeetingStartTime__c],
+    b.[LSSchedulerEmail__c:MeetingStartTimeString__c],
+    b.[LSSchedulerEmail__c:MeetingStartTimeStringSMS__c],
+    b.[LSSchedulerEmail__c:SystemModstamp],
+    b.[LSSchedulerEmail__c:TimeZone__c],
+    
+    DATEDIFF(
+        hour, 
+        a.[LSSchedulerEmail__c:MeetingStartTime__c], 
+        TRY_CONVERT(DATETIME, 
+            SUBSTRING(
+                a.[LSSchedulerEmail__c:MeetingStartTimeString__c], 
+                CHARINDEX(',', a.[LSSchedulerEmail__c:MeetingStartTimeString__c]) + 2, 
+                LEN(a.[LSSchedulerEmail__c:MeetingStartTimeString__c]) - CHARINDEX(',', a.[LSSchedulerEmail__c:MeetingStartTimeString__c]) - 4
+            )
+        )
+    ) AS time_difference
+
+FROM 
+    MeetingScheduler_Main a
+    INNER JOIN AnotherTable b ON a.[SomeID] = b.[SomeID]
+
+WHERE 
+    DATEDIFF(
+        hour, 
+        a.[LSSchedulerEmail__c:MeetingStartTime__c], 
+        TRY_CONVERT(DATETIME, 
+            SUBSTRING(
+                a.[LSSchedulerEmail__c:MeetingStartTimeString__c], 
+                CHARINDEX(',', a.[LSSchedulerEmail__c:MeetingStartTimeString__c]) + 2, 
+                LEN(a.[LSSchedulerEmail__c:MeetingStartTimeString__c]) - CHARINDEX(',', a.[LSSchedulerEmail__c:MeetingStartTimeString__c]) - 4
+            )
+        )
+    ) < 0

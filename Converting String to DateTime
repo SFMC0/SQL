@@ -26,3 +26,91 @@ WHERE
             )
         )
     ) < 4
+
+
+--
+
+SELECT 
+    col1,
+    col2,
+    -- Extract datetime portion and remove timezone abbreviation
+    TRY_CONVERT(DATETIME, 
+        SUBSTRING(
+            col2, 
+            CHARINDEX(',', col2) + 2, 
+            LEN(col2) - CHARINDEX(',', col2) - 5
+        )
+    ) AS col2_datetime,
+    
+    -- Determine time zone offset
+    CASE 
+        WHEN RIGHT(col2, 2) = 'ET' THEN 0  -- Eastern Time is UTC-5
+        WHEN RIGHT(col2, 2) = 'CT' THEN -1 -- Central Time is UTC-6
+        WHEN RIGHT(col2, 2) = 'MT' THEN -2 -- Mountain Time is UTC-7
+        WHEN RIGHT(col2, 2) = 'PT' THEN -3 -- Pacific Time is UTC-8
+        ELSE NULL
+    END AS timezone_offset,
+
+    -- Adjust col2 datetime to UTC by adding timezone offset
+    DATEADD(hour, 
+        CASE 
+            WHEN RIGHT(col2, 2) = 'ET' THEN 0  
+            WHEN RIGHT(col2, 2) = 'CT' THEN -1 
+            WHEN RIGHT(col2, 2) = 'MT' THEN -2 
+            WHEN RIGHT(col2, 2) = 'PT' THEN -3 
+            ELSE NULL
+        END, 
+        TRY_CONVERT(DATETIME, 
+            SUBSTRING(
+                col2, 
+                CHARINDEX(',', col2) + 2, 
+                LEN(col2) - CHARINDEX(',', col2) - 5
+            )
+        )
+    ) AS col2_utc,
+
+    -- Calculate time difference
+    DATEDIFF(
+        hour, 
+        col1, 
+        DATEADD(hour, 
+            CASE 
+                WHEN RIGHT(col2, 2) = 'ET' THEN 0  
+                WHEN RIGHT(col2, 2) = 'CT' THEN -1 
+                WHEN RIGHT(col2, 2) = 'MT' THEN -2 
+                WHEN RIGHT(col2, 2) = 'PT' THEN -3 
+                ELSE NULL
+            END, 
+            TRY_CONVERT(DATETIME, 
+                SUBSTRING(
+                    col2, 
+                    CHARINDEX(',', col2) + 2, 
+                    LEN(col2) - CHARINDEX(',', col2) - 5
+                )
+            )
+        )
+    ) AS time_difference
+FROM 
+    your_table
+WHERE 
+    DATEDIFF(
+        hour, 
+        col1, 
+        DATEADD(hour, 
+            CASE 
+                WHEN RIGHT(col2, 2) = 'ET' THEN 0  
+                WHEN RIGHT(col2, 2) = 'CT' THEN -1 
+                WHEN RIGHT(col2, 2) = 'MT' THEN -2 
+                WHEN RIGHT(col2, 2) = 'PT' THEN -3 
+                ELSE NULL
+            END, 
+            TRY_CONVERT(DATETIME, 
+                SUBSTRING(
+                    col2, 
+                    CHARINDEX(',', col2) + 2, 
+                    LEN(col2) - CHARINDEX(',', col2) - 5
+                )
+            )
+        )
+    ) < 4
+

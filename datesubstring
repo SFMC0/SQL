@@ -1,0 +1,7 @@
+SELECT 
+  TRIM(SUBSTRING(
+    your_column_name, 
+    CHARINDEX(',', your_column_name) + 2, 
+    PATINDEX('%[EPCM]T%', your_column_name) - CHARINDEX(',', your_column_name) - 3
+  )) AS extracted_datetime
+FROM your_table_name

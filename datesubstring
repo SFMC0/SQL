@@ -24,3 +24,13 @@ SELECT
   )) AS meeting_time
 
 FROM MeetingScheduler_Main a
+
+
+--
+SELECT 
+  TRIM(SUBSTRING(
+    a.[LSSchedulerEmail__c:MeetingStartTimeString__c], 
+    CHARINDEX(',', a.[LSSchedulerEmail__c:MeetingStartTimeString__c]) + 2, 
+    LEN(a.[LSSchedulerEmail__c:MeetingStartTimeString__c]) - CHARINDEX(',', a.[LSSchedulerEmail__c:MeetingStartTimeString__c]) - 5
+  )) AS extracted_datetime
+FROM MeetingScheduler_Main a

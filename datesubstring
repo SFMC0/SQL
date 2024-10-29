@@ -64,3 +64,38 @@ SELECT
   )) AS extracted_datetime
 FROM MeetingScheduler_Main a
 
+-- time diff 
+
+SELECT 
+  a.[LSSchedulerEmail__c:MeetingStartTime__c] AS actual_meeting_start,
+  
+  /* Extracted and formatted datetime from MeetingStartTimeString__c */
+  CAST(
+    TRIM(REPLACE(
+      SUBSTRING(
+        a.[LSSchedulerEmail__c:MeetingStartTimeString__c], 
+        CHARINDEX(',', a.[LSSchedulerEmail__c:MeetingStartTimeString__c]) + 2, 
+        LEN(a.[LSSchedulerEmail__c:MeetingStartTimeString__c]) - CHARINDEX(',', a.[LSSchedulerEmail__c:MeetingStartTimeString__c]) - 5
+      ), 
+      'at ', ''
+    )) AS DATETIME
+  ) AS extracted_datetime,
+
+  /* Calculating time difference in hours */
+  DATEDIFF(
+    HOUR,
+    CAST(
+      TRIM(REPLACE(
+        SUBSTRING(
+          a.[LSSchedulerEmail__c:MeetingStartTimeString__c], 
+          CHARINDEX(',', a.[LSSchedulerEmail__c:MeetingStartTimeString__c]) + 2, 
+          LEN(a.[LSSchedulerEmail__c:MeetingStartTimeString__c]) - CHARINDEX(',', a.[LSSchedulerEmail__c:MeetingStartTimeString__c]) - 5
+        ), 
+        'at ', ''
+      )) AS DATETIME
+    ),
+    a.[LSSchedulerEmail__c:MeetingStartTime__c]
+  ) AS time_difference_hours
+
+FROM MeetingScheduler_Main a
+

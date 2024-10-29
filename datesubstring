@@ -26,7 +26,7 @@ SELECT
 FROM MeetingScheduler_Main a
 
 
---
+-- Formatted date with at 
 SELECT 
   TRIM(SUBSTRING(
     a.[LSSchedulerEmail__c:MeetingStartTimeString__c], 
@@ -34,3 +34,20 @@ SELECT
     LEN(a.[LSSchedulerEmail__c:MeetingStartTimeString__c]) - CHARINDEX(',', a.[LSSchedulerEmail__c:MeetingStartTimeString__c]) - 5
   )) AS extracted_datetime
 FROM MeetingScheduler_Main a
+
+
+-- 
+SELECT 
+  TRIM(SUBSTRING(
+    a.[LSSchedulerEmail__c:MeetingStartTimeString__c], 
+    CHARINDEX(',', a.[LSSchedulerEmail__c:MeetingStartTimeString__c]) + 2, 
+    CHARINDEX('at', a.[LSSchedulerEmail__c:MeetingStartTimeString__c]) - CHARINDEX(',', a.[LSSchedulerEmail__c:MeetingStartTimeString__c]) - 3
+  )) 
+  + ' ' + 
+  TRIM(SUBSTRING(
+    a.[LSSchedulerEmail__c:MeetingStartTimeString__c], 
+    CHARINDEX('at', a.[LSSchedulerEmail__c:MeetingStartTimeString__c]) + 3, 
+    LEN(a.[LSSchedulerEmail__c:MeetingStartTimeString__c]) - CHARINDEX('at', a.[LSSchedulerEmail__c:MeetingStartTimeString__c]) - 3
+  )) AS extracted_datetime
+FROM MeetingScheduler_Main a
+

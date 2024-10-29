@@ -51,3 +51,16 @@ SELECT
   )) AS extracted_datetime
 FROM MeetingScheduler_Main a
 
+--- Repalcign at 
+
+SELECT 
+  TRIM(REPLACE(
+    SUBSTRING(
+      a.[LSSchedulerEmail__c:MeetingStartTimeString__c], 
+      CHARINDEX(',', a.[LSSchedulerEmail__c:MeetingStartTimeString__c]) + 2, 
+      LEN(a.[LSSchedulerEmail__c:MeetingStartTimeString__c]) - CHARINDEX(',', a.[LSSchedulerEmail__c:MeetingStartTimeString__c]) - 5
+    ), 
+    'at ', ''
+  )) AS extracted_datetime
+FROM MeetingScheduler_Main a
+

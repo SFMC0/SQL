@@ -6,3 +6,21 @@
     CHARINDEX('at', a.[LSSchedulerEmail__c:MeetingStartTimeString__c]) + 3) 
     - CHARINDEX(',', a.[LSSchedulerEmail__c:MeetingStartTimeString__c]) - 2  )) AS extracted_datetime
 FROM MeetingScheduler_Main a
+
+--
+
+
+SELECT 
+  TRIM(SUBSTRING(
+    a.[LSSchedulerEmail__c:MeetingStartTimeString__c], 
+    CHARINDEX(',', a.[LSSchedulerEmail__c:MeetingStartTimeString__c]) + 2, 
+    CHARINDEX('at', a.[LSSchedulerEmail__c:MeetingStartTimeString__c]) - CHARINDEX(',', a.[LSSchedulerEmail__c:MeetingStartTimeString__c]) - 3
+  )) AS meeting_date,
+  
+  TRIM(SUBSTRING(
+    a.[LSSchedulerEmail__c:MeetingStartTimeString__c], 
+    CHARINDEX('at', a.[LSSchedulerEmail__c:MeetingStartTimeString__c]) + 3, 
+    CHARINDEX(' ', a.[LSSchedulerEmail__c:MeetingStartTimeString__c], CHARINDEX('at', a.[LSSchedulerEmail__c:MeetingStartTimeString__c]) + 6) - CHARINDEX('at', a.[LSSchedulerEmail__c:MeetingStartTimeString__c]) - 3
+  )) AS meeting_time
+
+FROM MeetingScheduler_Main a

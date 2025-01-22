@@ -1,0 +1,105 @@
+### Salesforce Marketing Cloud (SFMC) Contact Deletion Process Documentation
+
+This document outlines the process of implementing and automating contact deletion in Salesforce Marketing Cloud (SFMC). The workflow ensures a systematic and efficient way to identify, stage, and delete contacts from the system while monitoring progress and logging all operations.
+
+---
+
+#### **1. Overview of the Process**
+The contact deletion process involves:
+1. **Identifying contacts**: Contacts present in "All Contacts" but not in "All Subscribers."
+2. **Staging the contacts**: Staging identified contacts in a dedicated data extension for further processing.
+3. **Automating the deletion**: A multi-step automation ensures proper deletion, error handling, and status updates.
+4. **Monitoring and logging**: Logging all operations, including errors, and using monitoring automations for process continuity.
+
+---
+
+#### **2. Primary Automation Workflow**
+
+**Step 1: Initial Contact Filtering**
+- Contacts from the staging data extension are picked up for deletion.
+- An exclusion process removes any contacts that may still exist in the "All Subscribers" list.
+- The filtered list of contacts is stored in a "Current Deletion" data extension for further processing.
+
+**Step 2: Contact Deletion Submission (SSJS)**
+- An SSJS script takes the contacts in the "Current Deletion" data extension and submits them for deletion using the Contact Deletion API.
+- The submission generates a unique `Operation ID` for the deletion request.
+- This step logs:
+  - Submission details
+  - `Operation ID`
+  - Any errors encountered during submission.
+
+**Step 3: Wait Step**
+- A wait step of 20 minutes ensures the deletion process initiated in Step 2 progresses before proceeding.
+
+**Step 4: Status Check and Update (SSJS)**
+- An SSJS script retrieves the `Operation ID` for the previous submission from the log data extension.
+- It checks the deletion status via the Contact Deletion API.
+- The current status of the deletion process is updated in the log data extension.
+- Logged details include:
+  - Current status of the deletion (e.g., completed, pending, failed).
+  - Any errors encountered during status checking.
+
+---
+
+#### **3. Monitoring Automations**
+
+Two separate monitoring automations ensure smooth operation and handle retries or process continuation:
+
+**Monitoring Automation 1**
+- Retrieves the `Operation ID` for the latest deletion process from the log data extension.
+- Checks the status of the process using the Contact Deletion API.
+- If the status is **Pending**, it pauses and waits for a retry.
+- If the status is **Completed**, it triggers the main automation to process the next batch of contacts.
+
+**Monitoring Automation 2**
+- Functions as a backup to monitor and ensure no operations are left incomplete.
+- Similar to Step 4 of the primary automation, it periodically checks the deletion status and logs any errors or inconsistencies.
+
+---
+
+#### **4. Data Extensions**
+The following data extensions support the process:
+
+1. **Staging Data Extension**:
+   - Stores contacts identified for deletion.
+   - Initial source for the deletion automation.
+
+2. **Current Deletion Data Extension**:
+   - Stores contacts filtered for deletion in the current batch.
+   - Tracks the contacts actively submitted for deletion.
+
+3. **Log Data Extension**:
+   - Maintains records of:
+     - Contact deletion submissions.
+     - Operation IDs.
+     - Status updates.
+     - Errors (if any).
+
+---
+
+#### **5. Logging and Error Handling**
+- All operations and their outcomes are logged into a dedicated log data extension.
+- Any errors encountered during submission or status checks are logged for troubleshooting and resolution.
+- Detailed error messages enable the identification of root causes.
+
+---
+
+#### **6. API Integration**
+The process uses Salesforce Marketing Cloud’s Contact Deletion API to:
+- Submit contacts for deletion.
+- Retrieve and monitor deletion statuses using unique `Operation IDs`.
+
+---
+
+#### **7. Process Flow Summary**
+1. Identify and stage contacts.
+2. Process contacts in batches:
+   - Exclude from "All Subscribers."
+   - Submit for deletion (Step 2).
+   - Monitor status (Step 4).
+3. Log all operations and errors.
+4. Monitor and continue the process using automation loops.
+
+---
+
+This documentation provides a clear understanding of the contact deletion process in SFMC, ensuring transparency, traceability, and efficiency in managing contact data.

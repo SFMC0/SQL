@@ -1,0 +1,43 @@
+SELECT
+    COUNT(CASE 
+              WHEN SubscriberKey LIKE '003%' AND LENGTH(SubscriberKey) = 18 THEN 1 
+              ELSE NULL 
+          END) AS Count_003_18_Length,
+          
+    COUNT(CASE 
+              WHEN SubscriberKey LIKE '%@%' AND LENGTH(SubscriberKey) > 0 THEN 1
+              ELSE NULL 
+          END) AS Count_With_Email,
+
+    COUNT(CASE 
+              WHEN SubscriberKey LIKE '%[0-9]%' AND LENGTH(SubscriberKey) = 10 AND SubscriberKey NOT LIKE '%[^0-9]%' THEN 1
+              ELSE NULL
+          END) AS Count_10_Digits_Numbers,
+
+    -- Categorizing counts based on the first 3 digits of SubscriberKey
+    COUNT(CASE 
+              WHEN LEFT(SubscriberKey, 3) = '003' THEN 1
+              ELSE NULL 
+          END) AS Count_003_Starting,
+    
+    COUNT(CASE 
+              WHEN LEFT(SubscriberKey, 3) = '004' THEN 1
+              ELSE NULL 
+          END) AS Count_004_Starting,
+    
+    COUNT(CASE 
+              WHEN LEFT(SubscriberKey, 3) = '005' THEN 1
+              ELSE NULL 
+          END) AS Count_005_Starting,
+
+    COUNT(CASE 
+              WHEN LEFT(SubscriberKey, 3) = '006' THEN 1
+              ELSE NULL 
+          END) AS Count_006_Starting,
+
+    COUNT(CASE 
+              WHEN LEFT(SubscriberKey, 3) = '007' THEN 1
+              ELSE NULL 
+          END) AS Count_007_Starting
+
+FROM Your_DataExtension_Name

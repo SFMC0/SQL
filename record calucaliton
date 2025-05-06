@@ -1,54 +1,69 @@
 <script runat="server">
 Platform.Load("Core", "1.1");
 
-// Get yesterday's start and end
-var today = new Date();
-var startOfYesterday = new Date(today);
-startOfYesterday.setDate(today.getDate() - 1);
-startOfYesterday.setHours(0, 0, 0, 0);
-var endOfYesterday = new Date(startOfYesterday);
-endOfYesterday.setHours(23, 59, 59, 999);
+try {
+    var today = new Date();
+    var startOfYesterday = new Date(today);
+    startOfYesterday.setDate(today.getDate() - 1);
+    startOfYesterday.setHours(0, 0, 0, 0);
+    var endOfYesterday = new Date(startOfYesterday);
+    endOfYesterday.setHours(23, 59, 59, 999);
 
-Write("Start of Yesterday: " + startOfYesterday + "<br>");
-Write("End of Yesterday: " + endOfYesterday + "<br><br>");
+    Write("Start of Yesterday: " + startOfYesterday + "<br>");
+    Write("End of Yesterday: " + endOfYesterday + "<br><br>");
 
-// Query records from DE
-var rows = DataExtension.Init("Your_DE_Name").Rows.Retrieve();
-Write("Total Records Retrieved: " + rows.length + "<br><br>");
+    var deName = "Your_DE_Name"; // Make sure this DE name is correct
+    var rows = DataExtension.Init(deName).Rows.Retrieve();
 
-var totalDeletedYesterday = 0;
+    Write("Total Records Retrieved: " + rows.length + "<br><br>");
 
-for (var i = 0; i < rows.length; i++) {
-    var record = rows[i];
-    var startTime = new Date(record["StartTime"]);
-    var endTime = new Date(record["EndTime"]);
-    var deleted = parseInt(record["RecordsDeleted"], 10);
+    var totalDeletedYesterday = 0;
 
-    Write("Record " + (i+1) + ":<br>");
-    Write(" - StartTime: " + startTime + "<br>");
-    Write(" - EndTime: " + endTime + "<br>");
-    Write(" - RecordsDeleted: " + deleted + "<br>");
+    for (var i = 0; i < rows.length; i++) {
+        var record = rows[i];
 
-    // If there's overlap with yesterday
-    if (endTime >= startOfYesterday && startTime <= endOfYesterday) {
-        var durationMs = endTime - startTime;
-        var overlapStart = (startTime > startOfYesterday) ? startTime : startOfYesterday;
-        var overlapEnd = (endTime < endOfYesterday) ? endTime : endOfYesterday;
-        var overlapMs = overlapEnd - overlapStart;
+        // Defensive checks
+        if (!record["StartTime"] || !record["EndTime"] || !record["RecordsDeleted"]) {
+            Write("Skipping record " + (i + 1) + " due to missing field(s).<br><br>");
+            continue;
+        }
 
-        var proportion = overlapMs / durationMs;
-        var partialDeleted = deleted * proportion;
+        var startTime = new Date(record["StartTime"]);
+        var endTime = new Date(record["EndTime"]);
+        var deleted = parseInt(record["RecordsDeleted"], 10);
 
-        Write(" - Overlap Duration (ms): " + overlapMs + "<br>");
-        Write(" - Proportion: " + proportion.toFixed(4) + "<br>");
-        Write(" - Count for Yesterday: " + partialDeleted.toFixed(2) + "<br><br>");
+        if (isNaN(deleted) || (endTime - startTime <= 0)) {
+            Write("Skipping record " + (i + 1) + " due to invalid data.<br><br>");
+            continue;
+        }
 
-        totalDeletedYesterday += partialDeleted;
-    } else {
-        Write(" - No overlap with yesterday.<br><br>");
+        Write("Record " + (i + 1) + ":<br>");
+        Write(" - StartTime: " + startTime + "<br>");
+        Write(" - EndTime: " + endTime + "<br>");
+        Write(" - RecordsDeleted: " + deleted + "<br>");
+
+        if (endTime >= startOfYesterday && startTime <= endOfYesterday) {
+            var durationMs = endTime - startTime;
+            var overlapStart = (startTime > startOfYesterday) ? startTime : startOfYesterday;
+            var overlapEnd = (endTime < endOfYesterday) ? endTime : endOfYesterday;
+            var overlapMs = overlapEnd - overlapStart;
+
+            var proportion = overlapMs / durationMs;
+            var partialDeleted = deleted * proportion;
+
+            Write(" - Overlap Duration (ms): " + overlapMs + "<br>");
+            Write(" - Proportion: " + proportion.toFixed(4) + "<br>");
+            Write(" - Count for Yesterday: " + partialDeleted.toFixed(2) + "<br><br>");
+
+            totalDeletedYesterday += partialDeleted;
+        } else {
+            Write(" - No overlap with yesterday.<br><br>");
+        }
     }
-}
 
-totalDeletedYesterday = Math.round(totalDeletedYesterday);
-Write("<strong>Total records deleted yesterday: " + totalDeletedYesterday + "</strong><br>");
+    totalDeletedYesterday = Math.round(totalDeletedYesterday);
+    Write("<strong>Total records deleted yesterday: " + totalDeletedYesterday + "</strong><br>");
+} catch (e) {
+    Write("<strong>Error:</strong> " + String(e) + "<br>");
+}
 </script>

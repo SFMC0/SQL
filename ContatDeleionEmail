@@ -355,3 +355,71 @@ NEXT @i
   </body>
   <custom name="opencounter" type="tracking"/>
 </html>
+
+--Code 5 
+
+%%[
+SET @totalDeleted = 0
+
+/* Previous day boundaries */
+SET @previousDate = FormatDate(DateAdd(Now(), -1, "D"), "yyyy-MM-dd")
+SET @dayStart = @previousDate + " 00:00:00"
+SET @dayEnd = @previousDate + " 23:59:59"
+
+SET @currentYear = FormatDate(Now(), "yyyy")
+
+/* Retrieve all rows */
+SET @rows = LookupOrderedRows("ENT.ContactsDeletion_APIDeleteLog_v01", 2000, "SFMC_operationID DESC", "LookupRow", "1")
+SET @rowCount = RowCount(@rows)
+
+FOR @i = 1 TO @rowCount DO
+
+  SET @row = Row(@rows, @i)
+  SET @startDT = Field(@row, 'ActualDeleteStartDate')
+  SET @endDT = Field(@row, 'ActualDeleteCompleteDate')
+  SET @count = Field(@row, 'DeletedRecordCount')
+
+  IF NOT EMPTY(@startDT) AND NOT EMPTY(@endDT) AND NOT EMPTY(@count) THEN
+
+    /* Trim to dates */
+    SET @startDateOnly = FormatDate(@startDT, "yyyy-MM-dd")
+    SET @endDateOnly = FormatDate(@endDT, "yyyy-MM-dd")
+    SET @startYear = FormatDate(@startDT, "yyyy")
+    SET @endYear = FormatDate(@endDT, "yyyy")
+
+    /* Case 1: Deletion occurred fully on previous day */
+    IF @startDateOnly == @previousDate AND @endDateOnly == @previousDate THEN
+      SET @totalDeleted = Add(@totalDeleted, @count)
+
+    /* Case 2: Spans multiple days and overlaps previous day */
+    ELSEIF @startDateOnly != @endDateOnly AND @startYear == @currentYear AND @endYear == @currentYear THEN
+
+      IF @endDT > @startDT THEN
+
+        SET @hoursDiff = DateDiff(@startDT, @endDT, "H")
+        SET @deletionPerHour = 0
+
+        IF @hoursDiff > 0 THEN
+          SET @deletionPerHour = Divide(@count, @hoursDiff)
+        ENDIF
+
+        /* Overlap within the previous day */
+        SET @effectiveStart = IIF(@startDT > @dayStart, @startDT, @dayStart)
+        SET @effectiveEnd = IIF(@endDT < @dayEnd, @endDT, @dayEnd)
+
+        IF @effectiveEnd > @effectiveStart THEN
+          SET @overlapHours = DateDiff(@effectiveStart, @effectiveEnd, "H")
+          IF @overlapHours > 0 AND @deletionPerHour > 0 THEN
+            SET @partialDeleted = Multiply(@deletionPerHour, @overlapHours)
+            SET @totalDeleted = Add(@totalDeleted, @partialDeleted)
+          ENDIF
+        ENDIF
+
+      ENDIF
+
+    ENDIF
+
+  ENDIF
+
+NEXT @i
+]%%

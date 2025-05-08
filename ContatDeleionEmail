@@ -1,3 +1,77 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Daily Contacts Deletion Summary</title>
+</head>
+<body style="margin:0; padding:0; font-family: Arial, sans-serif; color: #333333; background-color: #ffffff;">
+
+  <!-- Wrapper table for Outlook rendering -->
+  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #ffffff;">
+    <tr>
+      <td align="center">
+
+        <!-- Inner table -->
+        <table width="600" cellpadding="0" cellspacing="0" border="0" style="border-collapse: collapse;">
+
+          <!-- Header -->
+          <tr>
+            <td bgcolor="#f4f4f4" align="center" style="padding: 20px 10px;">
+              <h1 style="margin: 0; font-size: 24px;">Daily Contacts Deletion Summary</h1>
+              <p style="margin: 5px 0 0 0; font-size: 14px;">
+                Report Date: <strong>%%=FormatDate(DateAdd(Now(), -1, "D"), "MMMM dd, yyyy")=%%</strong>
+              </p>
+            </td>
+          </tr>
+
+          <!-- Content -->
+          <tr>
+            <td style="padding: 20px; font-size: 14px; line-height: 1.6;">
+              <h2 style="margin-top: 0;">Yesterday's Contacts Deletion Summary</h2>
+
+              <p>
+                <strong>Total Contacts Deleted:</strong>
+                <span style="color: #d9534f; font-weight: bold;">%%=FormatNumber(@totalDeleted, "N0")=%%</span>
+              </p>
+
+              <p>
+                <strong>Total Contacts Submitted for Deletion:</strong>
+                <span style="font-weight: bold;">%%=FormatNumber(@ContactsSubmittedForDeletion, "N0")=%%</span>
+              </p>
+
+              <p>This report includes:</p>
+              <ul style="padding-left: 20px; margin-top: 0;">
+                <li>Deletion jobs fully completed yesterday</li>
+                <li>Proportional count from multi-day deletion jobs</li>
+                <li>Ongoing deletions not included</li>
+              </ul>
+
+              <p>
+                For detailed logs, refer to the Data Extension:
+                <em>ContactsDeletion_APIDeleteLog_v01</em>.
+              </p>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td bgcolor="#f4f4f4" align="center" style="padding: 15px; font-size: 12px; color: #666666;">
+              This is an automated report.<br>
+              For questions, contact the CE Marvels team.
+            </td>
+          </tr>
+
+        </table>
+
+      </td>
+    </tr>
+  </table>
+
+  <custom name="opencounter" type="tracking"/>
+</body>
+</html>
+
+
+
 <!--%%[
 SET @totalDeleted = 0
 

@@ -250,3 +250,108 @@ ENDIF
     <p>Your Marketing Automation Team</p>
 </body>
 </html>
+--Code 4 
+
+<!--%%[
+SET @totalDeleted = 0
+
+/* Set previous day */
+SET @previousDate = FormatDate(DateAdd(Now(), -1, "D"), "yyyy-MM-dd")
+SET @currentYear = FormatDate(Now(),"yyyy")
+
+/* Retrieve all deletion records */
+SET @rows = LookupOrderedRows("ENT.ContactsDeletion_APIDeleteLog_v01", 0,  "SFMC_operationID DESC", "LookupRow", "1")
+SET @rowCount = RowCount(@rows)
+/* Loop through all records */
+FOR @i = 1 TO @rowCount DO
+  SET @row = Row(@rows, @i)
+  SET @ActualDeleteStartDate = Field(@row, 'ActualDeleteStartDate')
+  SET @ActualDeleteCompleteDate = Field(@row, "ActualDeleteCompleteDate")
+  SET @DeletedRecordCount = Field(@row, "DeletedRecordCount")
+  
+  SET @startDateOnly = FormatDate(@ActualDeleteStartDate, "yyyy-MM-dd")
+  SET @startYear = FormatDate(@ActualDeleteStartDate, "yyyy")
+  SET @endDateOnly = FormatDate(@ActualDeleteCompleteDate, "yyyy-MM-dd")
+  SET @endYear = FormatDate(@ActualDeleteCompleteDate, "yyyy")
+  
+  
+  IF @startDateOnly == @previousDate AND @endDateOnly == @previousDate THEN
+    /* Deletion fully on previous day */
+    SET @DAYtotalDeleted = Add(@totalDeleted, @DeletedRecordCount)
+  ELSEIF @startDateOnly != @endDateOnly THEN
+    IF @startYear == @currentYear AND @endYear == @currentYear AND @ActualDeleteCompleteDate > @ActualDeleteStartDate  THEN 
+      SET @hoursDiff = DateDiff( @ActualDeleteStartDate,@ActualDeleteCompleteDate, "H")
+      SET @deletionPerHourInitial = Divide(@DeletedRecordCount, @hoursDiff)
+      IF @deletionPerHourInitial > 0 THEN 
+         SET @deletionPerHour = FormatNumber(@deletionPerHourInitial, "N0")
+
+      ENDIF
+      
+      /* Calculate overlap with previous day */
+      SET @dayStart = @previousDate + " 00:00:00"
+      SET @dayEnd = @previousDate + " 23:59:59"
+      
+      SET @effectiveStart = IIF(@ActualDeleteStartDate > @dayStart, @ActualDeleteStartDate, @dayStart)
+      SET @effectiveEnd = IIF(@ActualDeleteCompleteDate < @dayEnd, @ActualDeleteCompleteDate, @dayEnd)
+
+      SET @overlap = DateDiff( @effectiveEnd, @effectiveStart, "H")
+      
+      IF @overlap > 0 THEN
+        ]%%-->
+     effectiveStart: %%=V(@effectiveStart)=%% <br>
+     effectiveEnd: %%=V(@effectiveEnd)=%% <br>
+     totalDeleted: %%=V(@totalDeleted)=%% <br>
+     deletionPerHour: %%=V(@deletionPerHour)=%% <br>
+
+
+     <!--%%[
+        SET @totalDeleted = Add(@totalDeleted, Multiply(@deletionPerHour, @overlap))
+      ENDIF
+
+    ENDIF
+  ]%%-->
+      ActualDeleteStartDate:  %%=V(@ActualDeleteStartDate)=%% <br>
+     ActualDeleteCompleteDate: %%=V(@ActualDeleteCompleteDate)=%% <br>
+     hoursDiff: %%=V(@hoursDiff)=%% <br>
+     overlap: %%=V(@overlap)=%% <br>
+     dayStart: %%=V(@dayStart)=%% <br>
+     dayEnd: %%=V(@dayEnd)=%% <br>
+     effectiveStart: %%=V(@effectiveStart)=%% <br>
+     effectiveEnd: %%=V(@effectiveEnd)=%% <br>
+
+     <!--%%[
+    
+
+
+
+  ENDIF
+ 
+NEXT @i
+
+]%%-->
+
+<html>
+  <body style="font-family: Arial, sans-serif; color: #333;">
+    <h2>🧾 Contact Deletion Summary – %%=FormatDate(DateAdd(Now(), -1, "D"), "MMMM dd, yyyy")=%%</h2>
+
+    <p>Hello,</p>
+
+    <p>This is the summary of contact deletions that occurred on <strong>%%=v(@previousDate)=%%</strong>.</p>
+    RowCOunt: %%=V(@rowCount)=%%
+    ActualDeleteStartDate:  %%=V(@ActualDeleteStartDate)=%% <br>
+     ActualDeleteCompleteDate: %%=V(@ActualDeleteCompleteDate)=%% <br>
+     %%=V(@DeletedRecordCount)=%% <br>
+     %%=V(@startDateOnly)=%% <br>
+     hoursDiff: %%=V(@hoursDiff)=%% <br>
+    
+
+    
+
+    <p><strong>Total Contacts Deleted:</strong> <span style="color: #d9534f;">%%=FormatNumber(@totalDeleted, "N0")=%%</span></p>
+
+    <p>For detailed logs, please refer to the Data Extension: <em>ContactsDeletion_APIDeleteLog_v01</em>.</p>
+
+    <br><p>Best regards,<br>Your SFMC Automation Team</p>
+  </body>
+  <custom name="opencounter" type="tracking"/>
+</html>

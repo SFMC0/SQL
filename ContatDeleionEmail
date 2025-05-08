@@ -1,3 +1,67 @@
+%%[
+SET @totalDeleted = 0
+
+/* Previous day range */
+SET @previousDate = FormatDate(DateAdd(Now(), -1, "D"), "yyyy-MM-dd")
+SET @dayStart = DateParse(@previousDate + " 00:00:00")
+SET @dayEnd = DateParse(@previousDate + " 23:59:59")
+SET @currentYear = FormatDate(Now(), "yyyy")
+
+/* Retrieve rows */
+SET @rows = LookupOrderedRows("ENT.ContactsDeletion_APIDeleteLog_v01", 0, "SFMC_operationID DESC", "LookupRow", "1")
+SET @rowCount = RowCount(@rows)
+
+/* Loop */
+FOR @i = 1 TO @rowCount DO
+
+  SET @row = Row(@rows, @i)
+  SET @startDT = DateParse(Field(@row, 'ActualDeleteStartDate'))
+  SET @endDT = DateParse(Field(@row, 'ActualDeleteCompleteDate'))
+  SET @count = Field(@row, 'DeletedRecordCount')
+
+  IF NOT EMPTY(@startDT) AND NOT EMPTY(@endDT) AND NOT EMPTY(@count) THEN
+
+    SET @startDateOnly = FormatDate(@startDT, "yyyy-MM-dd")
+    SET @endDateOnly = FormatDate(@endDT, "yyyy-MM-dd")
+    SET @startYear = FormatDate(@startDT, "yyyy")
+    SET @endYear = FormatDate(@endDT, "yyyy")
+
+    /* Fully within previous day */
+    IF @startDateOnly == @previousDate AND @endDateOnly == @previousDate THEN
+      SET @totalDeleted = Add(@totalDeleted, @count)
+
+    /* Spanning multiple days, overlapping previous day */
+    ELSEIF @startYear == @currentYear AND @endYear == @currentYear AND @startDateOnly != @endDateOnly THEN
+
+      IF @endDT > @startDT THEN
+
+        SET @hoursDiff = DateDiff(@startDT, @endDT, "H")
+        IF @hoursDiff < 1 THEN SET @hoursDiff = 1 ENDIF
+
+        SET @deletionPerHour = Divide(@count, @hoursDiff)
+
+        /* Calculate overlapping window */
+        SET @effectiveStart = IIF(@startDT > @dayStart, @startDT, @dayStart)
+        SET @effectiveEnd = IIF(@endDT < @dayEnd, @endDT, @dayEnd)
+
+        IF @effectiveEnd > @effectiveStart THEN
+          SET @overlapHours = DateDiff(@effectiveStart, @effectiveEnd, "H")
+          IF @overlapHours < 1 THEN SET @overlapHours = 1 ENDIF
+
+          SET @partialDeleted = Multiply(@deletionPerHour, @overlapHours)
+          SET @totalDeleted = Add(@totalDeleted, @partialDeleted)
+        ENDIF
+
+      ENDIF
+
+    ENDIF
+
+  ENDIF
+
+NEXT @i
+]%%
+
+
 Code 1- -
 %%[
 VAR @rows, @row, @rowCount, @i

@@ -1,37 +1,44 @@
 %%[
 SET @totalDeleted = 0
-
-/* Get the total submitted count */
 SET @ContactsSubmittedForDeletion = DataExtensionRowCount("ENT.2025_ContactDeletion_Archive")
 
-/* Define previous day boundaries as datetime values */
 SET @today = Now()
 SET @previousDay = DateAdd(@today, -1, "D")
-
 SET @dayStart = FormatDate(@previousDay, "yyyy-MM-dd") + " 00:00:00"
 SET @dayEnd = FormatDate(@previousDay, "yyyy-MM-dd") + " 23:59:59"
 
-/* Retrieve deletion log rows */
 SET @rows = LookupOrderedRows("ENT.ContactsDeletion_APIDeleteLog_v01", 0, "SFMC_operationID DESC", "LookupRow", "1")
 SET @rowCount = RowCount(@rows)
 
-/* Loop and calculate deletions */
+]%%
+
+<p>Total rows found: %%=v(@rowCount)=%%</p>
+
+%%[
 FOR @i = 1 TO @rowCount DO
 
   SET @row = Row(@rows, @i)
   SET @startDT = Field(@row, 'ActualDeleteStartDate')
   SET @endDT = Field(@row, 'ActualDeleteCompleteDate')
   SET @count = Field(@row, 'DeletedRecordCount')
+]%%
 
+  <hr>
+  <p><strong>Row %%=v(@i)=%%</strong></p>
+  <p>Start: %%=v(@startDT)=%%</p>
+  <p>End: %%=v(@endDT)=%%</p>
+  <p>Count: %%=v(@count)=%%</p>
+
+%%[
   IF NOT EMPTY(@startDT) AND NOT EMPTY(@endDT) AND NOT EMPTY(@count) THEN
 
-    /* Case 1: Deletion fully within the previous day */
+    /* Fully within previous day */
     IF FormatDate(@startDT, "yyyy-MM-dd") == FormatDate(@previousDay, "yyyy-MM-dd") AND
        FormatDate(@endDT, "yyyy-MM-dd") == FormatDate(@previousDay, "yyyy-MM-dd") THEN
 
       SET @totalDeleted = Add(@totalDeleted, @count)
 
-    /* Case 2: Deletion spans multiple days and overlaps the previous day */
+    /* Spans previous day */
     ELSEIF @endDT >= @dayStart AND @startDT <= @dayEnd THEN
 
       SET @durationHours = DateDiff(@startDT, @endDT, "H")
@@ -42,19 +49,18 @@ FOR @i = 1 TO @rowCount DO
       SET @effectiveStart = IIF(@startDT > @dayStart, @startDT, @dayStart)
       SET @effectiveEnd = IIF(@endDT < @dayEnd, @endDT, @dayEnd)
 
-      IF @effectiveEnd > @effectiveStart THEN
-        SET @overlapHours = DateDiff(@effectiveStart, @effectiveEnd, "H")
-        IF @overlapHours < 1 THEN SET @overlapHours = 1 ENDIF
+      SET @overlapHours = DateDiff(@effectiveStart, @effectiveEnd, "H")
+      IF @overlapHours < 1 THEN SET @overlapHours = 1 ENDIF
 
-        SET @partialDeleted = Multiply(@deletionPerHour, @overlapHours)
-        SET @totalDeleted = Add(@totalDeleted, @partialDeleted)
-      ENDIF
-
+      SET @partialDeleted = Multiply(@deletionPerHour, @overlapHours)
+      SET @totalDeleted = Add(@totalDeleted, @partialDeleted)
     ENDIF
   ENDIF
 
 NEXT @i
 ]%%
+
+<p><strong>Total Contacts Deleted (calculated):</strong> %%=FormatNumber(@totalDeleted, "N0")=%%</p>
 
 
 ---

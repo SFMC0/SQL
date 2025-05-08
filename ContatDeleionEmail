@@ -1,19 +1,21 @@
-<!--%%[
+%%[
 SET @totalDeleted = 0
 
-/* Get the total count of deletion from Archvie DE */
+/* Get the total submitted count */
+SET @ContactsSubmittedForDeletion = DataExtensionRowCount("ENT.2025_ContactDeletion_Archive")
 
-SET @ContactsSubmittedForDeletion =  DataExtensionRowCount("ENT.2025_ContactDeletion_Archive")
+/* Define previous day boundaries as datetime values */
+SET @today = Now()
+SET @previousDay = DateAdd(@today, -1, "D")
 
-/* Previous day boundaries */
-SET @previousDate = FormatDate(DateAdd(Now(), -1, "D"), "yyyy-MM-dd")
-SET @dayStart = Concat(@previousDate, " 00:00:00")
-SET @dayEnd = Concat(@previousDate, " 23:59:59")
-SET @currentYear = FormatDate(Now(), "yyyy")
+SET @dayStart = FormatDate(@previousDay, "yyyy-MM-dd") + " 00:00:00"
+SET @dayEnd = FormatDate(@previousDay, "yyyy-MM-dd") + " 23:59:59"
 
+/* Retrieve deletion log rows */
 SET @rows = LookupOrderedRows("ENT.ContactsDeletion_APIDeleteLog_v01", 0, "SFMC_operationID DESC", "LookupRow", "1")
 SET @rowCount = RowCount(@rows)
 
+/* Loop and calculate deletions */
 FOR @i = 1 TO @rowCount DO
 
   SET @row = Row(@rows, @i)
@@ -23,37 +25,37 @@ FOR @i = 1 TO @rowCount DO
 
   IF NOT EMPTY(@startDT) AND NOT EMPTY(@endDT) AND NOT EMPTY(@count) THEN
 
-    /* Only consider if deletion overlaps the previous day */
-    IF @endDT >= @dayStartDT AND @startDT <= @dayEndDT THEN
+    /* Case 1: Deletion fully within the previous day */
+    IF FormatDate(@startDT, "yyyy-MM-dd") == FormatDate(@previousDay, "yyyy-MM-dd") AND
+       FormatDate(@endDT, "yyyy-MM-dd") == FormatDate(@previousDay, "yyyy-MM-dd") THEN
 
-      /* Case 1: Fully within previous day */
-      IF @startDT >= @dayStartDT AND @endDT <= @dayEndDT THEN
-        SET @totalDeleted = Add(@totalDeleted, @count)
+      SET @totalDeleted = Add(@totalDeleted, @count)
 
-      /* Case 2: Spanning multiple days and partially overlaps */
-      ELSE
-        SET @hoursDiff = DateDiff(@startDT, @endDT, "H")
-        IF @hoursDiff < 1 THEN SET @hoursDiff = 1 ENDIF
+    /* Case 2: Deletion spans multiple days and overlaps the previous day */
+    ELSEIF @endDT >= @dayStart AND @startDT <= @dayEnd THEN
 
-        SET @deletionPerHour = Divide(@count, @hoursDiff)
+      SET @durationHours = DateDiff(@startDT, @endDT, "H")
+      IF @durationHours < 1 THEN SET @durationHours = 1 ENDIF
 
-        SET @effectiveStart = IIF(@startDT > @dayStartDT, @startDT, @dayStartDT)
-        SET @effectiveEnd = IIF(@endDT < @dayEndDT, @endDT, @dayEndDT)
+      SET @deletionPerHour = Divide(@count, @durationHours)
 
-        IF @effectiveEnd > @effectiveStart THEN
-          SET @overlapHours = DateDiff(@effectiveStart, @effectiveEnd, "H")
-          IF @overlapHours < 1 THEN SET @overlapHours = 1 ENDIF
+      SET @effectiveStart = IIF(@startDT > @dayStart, @startDT, @dayStart)
+      SET @effectiveEnd = IIF(@endDT < @dayEnd, @endDT, @dayEnd)
 
-          SET @partialDeleted = Multiply(@deletionPerHour, @overlapHours)
-          SET @totalDeleted = Add(@totalDeleted, @partialDeleted)
-        ENDIF
+      IF @effectiveEnd > @effectiveStart THEN
+        SET @overlapHours = DateDiff(@effectiveStart, @effectiveEnd, "H")
+        IF @overlapHours < 1 THEN SET @overlapHours = 1 ENDIF
+
+        SET @partialDeleted = Multiply(@deletionPerHour, @overlapHours)
+        SET @totalDeleted = Add(@totalDeleted, @partialDeleted)
       ENDIF
 
     ENDIF
   ENDIF
 
 NEXT @i
-]%%-->
+]%%
+
 
 ---
 

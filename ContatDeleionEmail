@@ -1,3 +1,62 @@
+<!--%%[
+SET @totalDeleted = 0
+
+/* Get the total count of deletion from Archvie DE */
+
+SET @ContactsSubmittedForDeletion =  DataExtensionRowCount("ENT.2025_ContactDeletion_Archive")
+
+/* Previous day boundaries */
+SET @previousDate = FormatDate(DateAdd(Now(), -1, "D"), "yyyy-MM-dd")
+SET @dayStart = Concat(@previousDate, " 00:00:00")
+SET @dayEnd = Concat(@previousDate, " 23:59:59")
+SET @currentYear = FormatDate(Now(), "yyyy")
+
+SET @rows = LookupOrderedRows("ENT.ContactsDeletion_APIDeleteLog_v01", 0, "SFMC_operationID DESC", "LookupRow", "1")
+SET @rowCount = RowCount(@rows)
+
+FOR @i = 1 TO @rowCount DO
+
+  SET @row = Row(@rows, @i)
+  SET @startDT = Field(@row, 'ActualDeleteStartDate')
+  SET @endDT = Field(@row, 'ActualDeleteCompleteDate')
+  SET @count = Field(@row, 'DeletedRecordCount')
+
+  IF NOT EMPTY(@startDT) AND NOT EMPTY(@endDT) AND NOT EMPTY(@count) THEN
+
+    /* Only consider if deletion overlaps the previous day */
+    IF @endDT >= @dayStartDT AND @startDT <= @dayEndDT THEN
+
+      /* Case 1: Fully within previous day */
+      IF @startDT >= @dayStartDT AND @endDT <= @dayEndDT THEN
+        SET @totalDeleted = Add(@totalDeleted, @count)
+
+      /* Case 2: Spanning multiple days and partially overlaps */
+      ELSE
+        SET @hoursDiff = DateDiff(@startDT, @endDT, "H")
+        IF @hoursDiff < 1 THEN SET @hoursDiff = 1 ENDIF
+
+        SET @deletionPerHour = Divide(@count, @hoursDiff)
+
+        SET @effectiveStart = IIF(@startDT > @dayStartDT, @startDT, @dayStartDT)
+        SET @effectiveEnd = IIF(@endDT < @dayEndDT, @endDT, @dayEndDT)
+
+        IF @effectiveEnd > @effectiveStart THEN
+          SET @overlapHours = DateDiff(@effectiveStart, @effectiveEnd, "H")
+          IF @overlapHours < 1 THEN SET @overlapHours = 1 ENDIF
+
+          SET @partialDeleted = Multiply(@deletionPerHour, @overlapHours)
+          SET @totalDeleted = Add(@totalDeleted, @partialDeleted)
+        ENDIF
+      ENDIF
+
+    ENDIF
+  ENDIF
+
+NEXT @i
+]%%-->
+
+---
+
 <!DOCTYPE html>
 <html>
 <head>

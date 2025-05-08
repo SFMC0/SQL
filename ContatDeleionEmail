@@ -1,22 +1,20 @@
 %%[
 SET @totalDeleted = 0
 
-/* Previous day range */
+/* Previous day boundaries */
 SET @previousDate = FormatDate(DateAdd(Now(), -1, "D"), "yyyy-MM-dd")
-SET @dayStart = DateParse(@previousDate + " 00:00:00")
-SET @dayEnd = DateParse(@previousDate + " 23:59:59")
+SET @dayStart = Concat(@previousDate, " 00:00:00")
+SET @dayEnd = Concat(@previousDate, " 23:59:59")
 SET @currentYear = FormatDate(Now(), "yyyy")
 
-/* Retrieve rows */
 SET @rows = LookupOrderedRows("ENT.ContactsDeletion_APIDeleteLog_v01", 0, "SFMC_operationID DESC", "LookupRow", "1")
 SET @rowCount = RowCount(@rows)
 
-/* Loop */
 FOR @i = 1 TO @rowCount DO
 
   SET @row = Row(@rows, @i)
-  SET @startDT = DateParse(Field(@row, 'ActualDeleteStartDate'))
-  SET @endDT = DateParse(Field(@row, 'ActualDeleteCompleteDate'))
+  SET @startDT = Field(@row, 'ActualDeleteStartDate')
+  SET @endDT = Field(@row, 'ActualDeleteCompleteDate')
   SET @count = Field(@row, 'DeletedRecordCount')
 
   IF NOT EMPTY(@startDT) AND NOT EMPTY(@endDT) AND NOT EMPTY(@count) THEN
@@ -30,7 +28,7 @@ FOR @i = 1 TO @rowCount DO
     IF @startDateOnly == @previousDate AND @endDateOnly == @previousDate THEN
       SET @totalDeleted = Add(@totalDeleted, @count)
 
-    /* Spanning multiple days, overlapping previous day */
+    /* Spanning multiple days */
     ELSEIF @startYear == @currentYear AND @endYear == @currentYear AND @startDateOnly != @endDateOnly THEN
 
       IF @endDT > @startDT THEN
@@ -40,7 +38,7 @@ FOR @i = 1 TO @rowCount DO
 
         SET @deletionPerHour = Divide(@count, @hoursDiff)
 
-        /* Calculate overlapping window */
+        /* Calculate overlap with previous day */
         SET @effectiveStart = IIF(@startDT > @dayStart, @startDT, @dayStart)
         SET @effectiveEnd = IIF(@endDT < @dayEnd, @endDT, @dayEnd)
 
@@ -53,14 +51,10 @@ FOR @i = 1 TO @rowCount DO
         ENDIF
 
       ENDIF
-
     ENDIF
-
   ENDIF
-
 NEXT @i
 ]%%
-
 
 Code 1- -
 %%[

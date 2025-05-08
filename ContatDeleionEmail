@@ -1,0 +1,252 @@
+Code 1- -
+%%[
+VAR @rows, @row, @rowCount, @i
+VAR @startTime, @endTime, @deletedCount
+VAR @previousDate, @totalDeleted
+SET @totalDeleted = 0
+
+/* Set previous day */
+SET @previousDate = FormatDate(DateAdd(Now(), -1, "D"), "yyyy-MM-dd")
+
+/* Retrieve all deletion records */
+SET @rows = LookupRows("ContactDeletionLog", "DeletedCount", ">=0") /* Assumes a non-empty DE */
+SET @rowCount = RowCount(@rows)
+
+/* Loop through all records */
+FOR @i = 1 TO @rowCount DO
+  SET @row = Row(@rows, @i)
+  SET @startTime = Field(@row, "StartTime")
+  SET @endTime = Field(@row, "EndTime")
+  SET @deletedCount = Field(@row, "DeletedCount")
+
+  /* Convert datetimes to strings and dates for comparison */
+  VAR @startDateOnly, @endDateOnly
+  SET @startDateOnly = FormatDate(@startTime, "yyyy-MM-dd")
+  SET @endDateOnly = FormatDate(@endTime, "yyyy-MM-dd")
+
+  IF @startDateOnly == @previousDate AND @endDateOnly == @previousDate THEN
+    /* Deletion fully on previous day */
+    SET @totalDeleted = Add(@totalDeleted, @deletedCount)
+
+  ELSEIF @startDateOnly != @endDateOnly THEN
+    /* Deletion spans multiple days */
+    VAR @hoursDiff, @avgPerHour, @overlapHours, @deletionPerHour
+
+    SET @hoursDiff = DateDiff(@endTime, @startTime, "H")
+    IF @hoursDiff > 0 THEN
+      SET @deletionPerHour = Divide(@deletedCount, @hoursDiff)
+
+      /* Calculate overlap with previous day */
+      VAR @dayStart, @dayEnd
+      SET @dayStart = @previousDate + " 00:00:00"
+      SET @dayEnd = @previousDate + " 23:59:59"
+
+      VAR @effectiveStart, @effectiveEnd
+
+      SET @effectiveStart = IIF(@startTime > @dayStart, @startTime, @dayStart)
+      SET @effectiveEnd = IIF(@endTime < @dayEnd, @endTime, @dayEnd)
+
+      VAR @overlap
+      SET @overlap = DateDiff(@effectiveEnd, @effectiveStart, "H")
+
+      IF @overlap > 0 THEN
+        SET @totalDeleted = Add(@totalDeleted, Multiply(@deletionPerHour, @overlap))
+      ENDIF
+    ENDIF
+  ENDIF
+NEXT @i
+]%%
+
+<html>
+  <body style="font-family: Arial, sans-serif; color: #333;">
+    <h2>🧾 Contact Deletion Summary – %%=FormatDate(DateAdd(Now(), -1, "D"), "MMMM dd, yyyy")=%%</h2>
+
+    <p>Hello,</p>
+
+    <p>This is the summary of contact deletions that occurred on <strong>%%=v(@previousDate)=%%</strong>.</p>
+
+    <p><strong>Total Contacts Deleted:</strong> <span style="color: #d9534f;">%%=FormatNumber(@totalDeleted, "N0")=%%</span></p>
+
+    <p>For detailed logs, please refer to the Data Extension: <em>ContactDeletionLog</em>.</p>
+
+    <br><p>Best regards,<br>Your SFMC Automation Team</p>
+  </body>
+</html>
+-- code 2 -- 
+%%[
+/* AMPScript to calculate previous day's contact deletions */
+
+/* Set date parameters */
+SET @currentDate = Now()
+SET @yesterdayStart = FormatDate(DateAdd(@currentDate, -1, "D"), "yyyy-MM-dd 00:00:00")
+SET @yesterdayEnd = FormatDate(DateAdd(@currentDate, -1, "D"), "yyyy-MM-dd 23:59:59")
+
+/* Initialize variables */
+SET @totalDeletions = 0
+SET @rows = LookupRows("YourDeletionDE", "StartTime", @yesterdayStart, @yesterdayEnd)
+
+/* Process deletions that occurred entirely within yesterday */
+IF RowCount(@rows) > 0 THEN
+  FOR @i = 1 TO RowCount(@rows) DO
+    SET @row = Row(@rows, @i)
+    SET @startTime = Field(@row, "StartTime")
+    SET @endTime = Field(@row, "EndTime")
+    SET @deletionCount = Field(@row, "NumberOfContactsDeleted")
+    
+    /* If both start and end are within yesterday, add full count */
+    IF @startTime >= @yesterdayStart AND @endTime <= @yesterdayEnd THEN
+      SET @totalDeletions = Add(@totalDeletions, @deletionCount)
+    ENDIF
+  NEXT
+ENDIF
+
+/* Now handle deletions that span multiple days */
+SET @spanRows = LookupRows("YourDeletionDE", "StartTime", "", "")
+IF RowCount(@spanRows) > 0 THEN
+  FOR @j = 1 TO RowCount(@spanRows) DO
+    SET @spanRow = Row(@spanRows, @j)
+    SET @spanStart = Field(@spanRow, "StartTime")
+    SET @spanEnd = Field(@spanRow, "EndTime")
+    SET @spanCount = Field(@spanRow, "NumberOfContactsDeleted")
+    
+    /* Check if deletion spans yesterday */
+    IF (@spanStart < @yesterdayStart AND @spanEnd > @yesterdayStart) OR 
+       (@spanStart < @yesterdayEnd AND @spanEnd > @yesterdayEnd) THEN
+      
+      /* Calculate total hours for the deletion */
+      SET @totalHours = DateDiff(@spanStart, @spanEnd, "H")
+      
+      /* Calculate hours that fall within yesterday */
+      SET @yesterdayHoursStart = Max(@spanStart, @yesterdayStart)
+      SET @yesterdayHoursEnd = Min(@spanEnd, @yesterdayEnd)
+      SET @yesterdayHours = DateDiff(@yesterdayHoursStart, @yesterdayHoursEnd, "H")
+      
+      /* Calculate proportion and add to total */
+      IF @totalHours > 0 THEN
+        SET @hourlyRate = Divide(@spanCount, @totalHours)
+        SET @yesterdayDeletions = Multiply(@hourlyRate, @yesterdayHours)
+        SET @totalDeletions = Add(@totalDeletions, @yesterdayDeletions)
+      ENDIF
+    ENDIF
+  NEXT
+ENDIF
+]%%
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Daily Contacts Deletion Summary</title>
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; }
+        .header { background-color: #f4f4f4; padding: 20px; text-align: center; }
+        .content { padding: 20px; }
+        .footer { background-color: #f4f4f4; padding: 10px; text-align: center; font-size: 12px; }
+        .highlight { font-weight: bold; color: #d9534f; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Daily Contacts Deletion Summary</h1>
+        <p>Report Date: %%=FormatDate(@currentDate, "yyyy-MM-dd")=%%</p>
+    </div>
+    
+    <div class="content">
+        <h2>Yesterday's Contacts Deletion Summary</h2>
+        <p>Date: %%=FormatDate(@yesterdayStart, "yyyy-MM-dd")=%%</p>
+        
+        <p>Total contacts deleted yesterday: <span class="highlight">%%=v(@totalDeletions)=%%</span></p>
+        
+        <h3>Details:</h3>
+        <p>This report includes:</p>
+        <ul>
+            <li>Deletion jobs that completed entirely within yesterday</li>
+            <li>Proportional count from deletion jobs that spanned multiple days</li>
+        </ul>
+        
+        <p>For detailed deletion logs, please check the Deletion Data Extension in Marketing Cloud.</p>
+    </div>
+    
+    <div class="footer">
+        <p>This is an automated report. Please contact the Marketing Cloud Admin team if you have any questions.</p>
+        <p>© %%=Year(@currentDate)=%% Your Company Name. All rights reserved.</p>
+    </div>
+</body>
+</html>
+
+--Code 3 -- 
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Daily Contact Deletion Summary</title>
+</head>
+<body>
+    <p>Hi [Subscriber:FirstName],</p>
+    <p>Here's a summary of contact deletions that occurred yesterday:</p>
+
+    %%[
+    /* Calculate the date for yesterday */
+    VAR @yesterday
+    SET @yesterday = DateAdd(Now(), -1, "D")
+    SET @yesterdayStart = Format(@yesterday, "yyyy-MM-dd 00:00:00")
+    SET @yesterdayEnd = Format(@yesterday, "yyyy-MM-dd 23:59:59")
+
+    /* Initialize the total deletion count for yesterday */
+    VAR @totalDeletionsYesterday
+    SET @totalDeletionsYesterday = 0
+
+    /* Retrieve deletion records from the DeletionLog data extension */
+    VAR @rs, @row, @startTime, @endTime, @deletionCount, @hoursTaken, @deletionRatePerHour, @partialDeletionCount
+
+    SET @rs = Retrieve("DeletionLog", "StartTime", ">=", @yesterdayStart, "EndTime", "<=", DateAdd(@yesterdayEnd, 1, "D"))
+    SET @rowCount = RowCount(@rs)
+
+    IF @rowCount > 0 THEN
+        FOR @i = 1 TO @rowCount DO
+            SET @row = Row(@rs, @i)
+            SET @startTime = Field(@row, "StartTime")
+            SET @endTime = Field(@row, "EndTime")
+            SET @deletionCount = Field(@row, "DeletionCount")
+
+            /* Check if the deletion occurred entirely within yesterday */
+            IF Format(@startTime, "yyyy-MM-dd") == Format(@yesterday, "yyyy-MM-dd") AND Format(@endTime, "yyyy-MM-dd") == Format(@yesterday, "yyyy-MM-dd") THEN
+                SET @totalDeletionsYesterday = Add(@totalDeletionsYesterday, @deletionCount)
+            /* Handle cases where deletion spans across days */
+            ELSEIF Format(@startTime, "yyyy-MM-dd") <= Format(@yesterday, "yyyy-MM-dd") AND Format(@endTime, "yyyy-MM-dd") >= Format(@yesterday, "yyyy-MM-dd") THEN
+                /* Calculate the portion of the deletion that occurred yesterday */
+                VAR @overlapStart, @overlapEnd
+
+                IF DateDiff(@startTime, @yesterdayStart, "H") < 0 THEN
+                    SET @overlapStart = @yesterdayStart
+                ELSE
+                    SET @overlapStart = @startTime
+                ENDIF
+
+                IF DateDiff(@endTime, @yesterdayEnd, "H") > 0 THEN
+                    SET @overlapEnd = @yesterdayEnd
+                ELSE
+                    SET @overlapEnd = @endTime
+                ENDIF
+
+                SET @hoursTaken = DateDiff(@overlapStart, @overlapEnd, "H")
+                VAR @totalHours = DateDiff(@startTime, @endTime, "H")
+
+                IF @totalHours > 0 THEN
+                    SET @deletionRatePerHour = Divide(@deletionCount, @totalHours)
+                    SET @partialDeletionCount = Multiply(@deletionRatePerHour, @hoursTaken)
+                    SET @totalDeletionsYesterday = Add(@totalDeletionsYesterday, @partialDeletionCount)
+                ENDIF
+            ENDIF
+        NEXT @i
+    ENDIF
+    ]%%
+
+    <p>Total contacts deleted yesterday: <b>%%=Format(@totalDeletionsYesterday, "N0")=%%</b></p>
+
+    %%[ IF @rowCount == 0 THEN ]%%
+        <p>No contact deletions were logged for yesterday.</p>
+    %%[ ENDIF ]%%
+
+    <p>Thank you,</p>
+    <p>Your Marketing Automation Team</p>
+</body>
+</html>

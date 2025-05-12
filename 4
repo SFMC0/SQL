@@ -1,30 +1,45 @@
 <script runat="server">
 Platform.Load("Core", "1.1");
 
-var statuses = ["Pending", "Processing", "Completed", "Failed"]; // Can be empty
 var data = null;
+var statuses = ["Pending", "Processing", "Completed", "Failed"];
 
-// Check if there's anything to search for
-if (statuses.length > 0) {
-    for (var i = 0; i < statuses.length; i++) {
-        data = DeleteOperationDE.Rows.Lookup(
-            ["Delete_Operation_Status"],
-            [statuses[i]],
-            1,
-            "RequestInitiatedDateTime DESC"
+// Step 1: Look for null or empty status records
+var allRows = DeleteOperationDE.Rows.Retrieve();
+for (var i = 0; i < allRows.length; i++) {
+    var status = allRows[i]["Delete_Operation_Status"];
+    if (!status || status.trim() === "") {
+        var key = allRows[i]["PrimaryKeyField"]; // Replace with your actual primary key field
+        DeleteOperationDE.Rows.Update(
+            { "Delete_Operation_Status": "Pending" },
+            ["PrimaryKeyField"], [key]  // Replace with your actual key
         );
-
-        if (data && data.length > 0) {
-            break; // Exit early if a record is found
-        }
+        Write("Updated empty/null status to 'Pending' for record with key: " + key + "<br>");
+        break; // Only update the first match
     }
+}
+
+// Step 2: Now proceed with normal status-based lookup
+for (var j = 0; j < statuses.length; j++) {
+    data = DeleteOperationDE.Rows.Lookup(
+        ["Delete_Operation_Status"],
+        [statuses[j]],
+        1,
+        "RequestInitiatedDateTime DESC"
+    );
 
     if (data && data.length > 0) {
-        Write("Most recent operation found with status: " + data[0]["Delete_Operation_Status"] + "<br>");
-    } else {
-        Write("No matching delete operation found for given statuses.<br>");
+        Write("Found record with status: " + statuses[j] + "<br>");
+        break;
     }
+}
+
+// Step 3: Final output
+if (data && data.length > 0) {
+    Write("Most recent operation:<br>");
+    Write(" - Status: " + data[0]["Delete_Operation_Status"] + "<br>");
+    Write(" - RequestInitiatedDateTime: " + data[0]["RequestInitiatedDateTime"] + "<br>");
 } else {
-    Write("No statuses provided to search.<br>");
+    Write("No matching delete operation record found.<br>");
 }
 </script>

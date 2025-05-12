@@ -1,0 +1,30 @@
+<script runat="server">
+Platform.Load("Core", "1.1");
+
+var statuses = ["Pending", "Processing", "Completed", "Failed"]; // Can be empty
+var data = null;
+
+// Check if there's anything to search for
+if (statuses.length > 0) {
+    for (var i = 0; i < statuses.length; i++) {
+        data = DeleteOperationDE.Rows.Lookup(
+            ["Delete_Operation_Status"],
+            [statuses[i]],
+            1,
+            "RequestInitiatedDateTime DESC"
+        );
+
+        if (data && data.length > 0) {
+            break; // Exit early if a record is found
+        }
+    }
+
+    if (data && data.length > 0) {
+        Write("Most recent operation found with status: " + data[0]["Delete_Operation_Status"] + "<br>");
+    } else {
+        Write("No matching delete operation found for given statuses.<br>");
+    }
+} else {
+    Write("No statuses provided to search.<br>");
+}
+</script>

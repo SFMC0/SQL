@@ -1,0 +1,98 @@
+<script runat="server">
+Platform.Load("Core", "1.1");
+
+try {
+    // === CONFIGURATION ===
+    var config = {
+        mainDE: DataExtension.Init("356A0A32-3144-4047-8371-42EC0F142AC8"),
+        stagingDE: DataExtension.Init("3558C9D9-1D2C-4EC3-8508-1FFCA8B391DF"),
+        archiveDE: DataExtension.Init("437383C8-86C1-4DBE-8411-3D608399B606"),
+        errorLogDE: DataExtension.Init("3A45121F-8BCD-4FD6-A9FA-01223B8FC667"),
+        automationName: "MeetingScheduler_Main Deletion SSJS"
+    };
+
+    function logError(message, comment) {
+        config.errorLogDE.Rows.Add({
+            ErrorMessage: message,
+            Automation_Name: config.automationName,
+            Comment: comment || ""
+        });
+    }
+
+    function markAsProcessed(recordID) {
+        config.stagingDE.Rows.Update(
+            { "Is_Processed": true },
+            ["LSSchedulerEmail__c:Id"],
+            [recordID]
+        );
+    }
+
+    function getUnprocessedRecords() {
+        var filter = {
+            Property: "Is_Processed",
+            SimpleOperator: "equals",
+            Value: false
+        };
+        return config.stagingDE.Rows.Retrieve(filter);
+    }
+
+    function archiveHasRecord(recordID) {
+        var archiveRecords = config.archiveDE.Rows.Lookup("LSSchedulerEmail__c:Id", recordID);
+        return archiveRecords && archiveRecords.length > 0;
+    }
+
+    function deleteFromMain(recordID) {
+        return config.mainDE.Rows.Remove(["LSSchedulerEmail__c:Id"], [recordID]);
+    }
+
+    function processRecord(record) {
+        var recordID = record["LSSchedulerEmail__c:Id"];
+        if (archiveHasRecord(recordID)) {
+            deleteFromMain(recordID);
+        } else {
+            logError("Record " + recordID + " not found in Archive DE.", "Missing in Archive");
+        }
+        markAsProcessed(recordID);
+    }
+
+    function deleteAllRecords() {
+        var processedCount = 0;
+        var moreRecords = true;
+
+        while (moreRecords) {
+            var unprocessedRecords = getUnprocessedRecords();
+
+            if (!unprocessedRecords || unprocessedRecords.length === 0) {
+                if (processedCount === 0) {
+                    logError("No unprocessed records found in staging DE.");
+                }
+                moreRecords = false;
+                break;
+            }
+
+            for (var i = 0; i < unprocessedRecords.length; i++) {
+                processRecord(unprocessedRecords[i]);
+                processedCount++;
+            }
+        }
+    }
+
+    // === EXECUTE ===
+    deleteAllRecords();
+
+} catch (ex) {
+    var errorMessage;
+    try {
+        errorMessage = ex.toString();
+    } catch (e2) {
+        errorMessage = "Unknown error occurred.";
+    }
+
+    var errorLogDE = DataExtension.Init("3A45121F-8BCD-4FD6-A9FA-01223B8FC667");
+    errorLogDE.Rows.Add({
+        ErrorMessage: errorMessage,
+        Automation_Name: "MeetingScheduler_Main Deletion SSJS",
+        Comment: "General Error"
+    });
+}
+</script>

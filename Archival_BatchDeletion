@@ -1,6 +1,104 @@
 <script runat="server">
 Platform.Load("Core", "1.1");
 
+try {
+    function DeleteRecords() {
+        var deleteDE = DataExtension.Init("3558C9D9-1D2C-4EC3-8508-1FFCA8B391DF"); // staging DE
+        var processLogDE = DataExtension.Init("YOUR_PROCESS_LOG_DE_ID"); // Process log DE
+        var api = new Script.Util.WSProxy();
+
+        // Get unprocessed records count first
+        var filter = {
+            Property: "IS_Processed",
+            SimpleOperator: "equals",
+            Value: false
+        };
+
+        var unprocessedCount = deleteDE.Rows.Lookup(filter).length;
+
+        // Early exit if no records to process
+        if (!unprocessedCount) {
+            processLogDE.Rows.Add({ 
+                "message": "Process Complete: No records found for processing in staging DE." 
+            });
+            return;
+        }
+
+        // Retrieve records for processing
+        var deleteDERecords = deleteDE.Rows.Retrieve(filter);
+        
+        // Prepare records for batch deletion
+        var recordsToDelete = deleteDERecords.map(function(record) {
+            return {
+                CustomerKey: "356A0A32-3144-4047-8371-42EC0F142AC8",
+                Keys: [{
+                    Name: "LSSchedulerEmail__c:Id",
+                    Value: record["LSSchedulerEmail__c:Id"]
+                }]
+            };
+        });
+
+        try {
+            // Execute batch delete
+            var result = api.deleteBatch("DataExtensionObject", recordsToDelete);
+            
+            if (result.Status !== "OK") {
+                throw new Error("Batch delete failed with status: " + result.Status);
+            }
+
+            var successCount = 0;
+            var errorCount = 0;
+            var errors = [];
+
+            // Process results and update flags
+            result.Results.forEach(function(deleteResult, index) {
+                var recordID = recordsToDelete[index].Keys[0].Value;
+                
+                if (deleteResult.StatusCode === "OK") {
+                    deleteDE.Rows.Update(
+                        { IS_Processed: true },
+                        ["LSSchedulerEmail__c:Id"],
+                        [recordID]
+                    );
+                    successCount++;
+                } else {
+                    errorCount++;
+                    errors.push("ID: " + recordID + " - " + deleteResult.StatusMessage);
+                }
+            });
+
+            // Log final results
+            processLogDE.Rows.Add({
+                "message": "Batch Process Summary\n" +
+                          "Total Processed: " + recordsToDelete.length + "\n" +
+                          "Successful: " + successCount + "\n" +
+                          "Errors: " + errorCount + 
+                          (errors.length ? "\nError Details:\n" + errors.join("\n") : "")
+            });
+
+        } catch (batchError) {
+            processLogDE.Rows.Add({
+                "message": "Batch Operation Failed\n" +
+                          "Error: " + batchError + "\n" +
+                          "Records Attempted: " + recordsToDelete.length
+            });
+        }
+    }
+
+    DeleteRecords();
+
+} catch (ex) {
+    processLogDE.Rows.Add({ 
+        "message": "Critical Error\nError: " + ex 
+    });
+}
+</script> 
+
+---
+
+<script runat="server">
+Platform.Load("Core", "1.1");
+
 var proxy = new Script.Util.WSProxy();
 
 var config = {

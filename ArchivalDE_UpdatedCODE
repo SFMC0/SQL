@@ -2,6 +2,135 @@
 Platform.Load("Core", "1.1");
 
 try {
+    function DeleteRecords() {
+        Write("<br>Starting DeleteRecords function...<br>");
+        
+        var mainDE = DataExtension.Init("356A0A32-3144-4047-8371-42EC0F142AC8"); // data extension for MeetingScheduler_Main_NEW
+        var deleteDE = DataExtension.Init("3558C9D9-1D2C-4EC3-8508-1FFCA8B391DF"); // data extension for temp/staging data extension
+        var errorLogDE = DataExtension.Init("3A45121F-8BCD-4FD6-A9FA-01223B8FC667"); // DE for error logging
+        var processLogDE = DataExtension.Init("YOUR_PROCESS_LOG_DE_ID"); // New DE for detailed process logging
+
+        // Get unprocessed records (2500 at a time)
+        var filter = {
+            Property: "IS_Processed",
+            SimpleOperator: "equals",
+            Value: false
+        };
+
+        Write("<br>Retrieving unprocessed records...<br>");
+        var deleteDERecords = deleteDE.Rows.Retrieve(filter);
+        var recordCount = deleteDERecords.length;
+        Write("<br>Found " + recordCount + " unprocessed records<br>");
+
+        // Log initial batch information
+        var batchLogID = Platform.Function.GUID();
+        processLogDE.Rows.Add({
+            BatchID: batchLogID,
+            ProcessStartTime: Platform.Function.SystemDateToLocalDate(Platform.Function.Now()),
+            TotalRecordsFound: recordCount,
+            Status: "Started"
+        });
+
+        // If no records to process or record count is 0, log and exit
+        if (!recordCount || recordCount == 0) {
+            Write("<br>No records to process. Exiting...<br>");
+            var noRecordsError = errorLogDE.Rows.Add({
+                ErrorMessage: "No unprocessed records found in Staging DE.", 
+                Automation_Name: "MeetingScheduler_Main Deletion SSJS"
+            });
+            return;
+        }
+
+        // Process records in current batch
+        var successCount = 0;
+        var errorCount = 0;
+        Write("<br>Starting to process " + recordCount + " records...<br>");
+
+        for (var i = 0; i < deleteDERecords.length; i++) {
+            try {
+                var recordID = deleteDERecords[i]["LSSchedulerEmail__c:Id"];
+                Write("<br>Processing record " + (i + 1) + " of " + recordCount + " (ID: " + recordID + ")<br>");
+                
+                // Attempt to delete from main DE
+                var deleteResult = mainDE.Rows.Remove(["LSSchedulerEmail__c:Id"], [recordID]);
+                
+                if (deleteResult) {
+                    // Update IS_Processed flag in staging DE
+                    var updateResult = deleteDE.Rows.Update(
+                        { IS_Processed: true },
+                        ["LSSchedulerEmail__c:Id"], 
+                        [recordID]
+                    );
+                    
+                    if (updateResult) {
+                        successCount++;
+                        Write("<br>Successfully processed record ID: " + recordID + "<br>");
+                        
+                        // Log successful record processing
+                        processLogDE.Rows.Add({
+                            BatchID: batchLogID,
+                            RecordID: recordID,
+                            ProcessStatus: "Success",
+                            ProcessTime: Platform.Function.SystemDateToLocalDate(Platform.Function.Now())
+                        });
+                    }
+                }
+            } catch (deleteError) {
+                errorCount++;
+                Write("<br>Error processing record ID: " + recordID + ". Error: " + deleteError + "<br>");
+                
+                // Log error in error log DE
+                errorLogDE.Rows.Add({
+                    ErrorMessage: "Failed to process record ID: " + recordID + ". Error: " + deleteError,
+                    Automation_Name: "MeetingScheduler_Main Deletion SSJS"
+                });
+                
+                // Log failed record processing
+                processLogDE.Rows.Add({
+                    BatchID: batchLogID,
+                    RecordID: recordID,
+                    ProcessStatus: "Error",
+                    ErrorMessage: deleteError,
+                    ProcessTime: Platform.Function.SystemDateToLocalDate(Platform.Function.Now())
+                });
+            }
+        }
+
+        // Update batch completion status
+        processLogDE.Rows.Add({
+            BatchID: batchLogID,
+            ProcessEndTime: Platform.Function.SystemDateToLocalDate(Platform.Function.Now()),
+            TotalSuccessful: successCount,
+            TotalErrors: errorCount,
+            Status: "Completed"
+        });
+
+        // Log batch processing results
+        Write("<br>Batch processing complete. Success: " + successCount + ", Errors: " + errorCount + "<br>");
+        errorLogDE.Rows.Add({
+            ErrorMessage: "Batch processing complete. Successfully processed: " + successCount + " records. Errors: " + errorCount,
+            Automation_Name: "MeetingScheduler_Main Deletion SSJS"
+        });
+    }
+
+    DeleteRecords();
+
+} catch (ex) {
+    Write("<br>General error occurred: " + ex + "<br>");
+    var errorLogDE = DataExtension.Init("3A45121F-8BCD-4FD6-A9FA-01223B8FC667");
+    var generalError = errorLogDE.Rows.Add({
+        ErrorMessage: ex, 
+        Automation_Name: "MeetingScheduler_Main Deletion SSJS", 
+        Comment: "General Error"
+    });
+}
+</script> 
+
+--#Working 
+<script runat="server">
+Platform.Load("Core", "1.1");
+
+try {
     var mainDE = DataExtension.Init("356A0A32-3144-4047-8371-42EC0F142AC8");
     var stagingDE = DataExtension.Init("3558C9D9-1D2C-4EC3-8508-1FFCA8B391DF");
     var errorLogDE = DataExtension.Init("3A45121F-8BCD-4FD6-A9FA-01223B8FC667");

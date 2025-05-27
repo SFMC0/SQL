@@ -5,6 +5,83 @@ try {
     var mainDE = DataExtension.Init("356A0A32-3144-4047-8371-42EC0F142AC8");
     var stagingDE = DataExtension.Init("3558C9D9-1D2C-4EC3-8508-1FFCA8B391DF");
     var errorLogDE = DataExtension.Init("3A45121F-8BCD-4FD6-A9FA-01223B8FC667");
+    var logDE = DataExtension.Init("SSJS Add DE"); // Your log DE with 'Message' column
+    var automationName = "MeetingScheduler_Main Deletion SSJS";
+
+    var totalProcessed = 0;
+    var hasMore = true;
+
+    while (hasMore) {
+        var filter = {
+            Property: "Is_Processed",
+            SimpleOperator: "equals",
+            Value: false
+        };
+        var records = stagingDE.Rows.Retrieve(filter);
+
+        if (!records || records.length === 0) {
+            if(totalProcessed === 0) {
+                errorLogDE.Rows.Add({
+                    ErrorMessage: "No unprocessed records found in staging DE.",
+                    Automation_Name: automationName,
+                    Comment: ""
+                });
+                Write("No unprocessed records to process.<br>");
+            }
+            hasMore = false;
+            break;
+        }
+
+        for (var i = 0; i < records.length; i++) {
+            var recordID = records[i]["LSSchedulerEmail__c:ID"]; // Updated field name
+
+            // Delete from main DE
+            mainDE.Rows.Remove(["LSSchedulerEmail__c:ID"], [recordID]);
+
+            // Mark as processed in staging DE
+            stagingDE.Rows.Update(
+                { "Is_Processed": true },
+                ["LSSchedulerEmail__c:ID"],
+                [recordID]
+            );
+
+            var message = "Processed record ID: " + recordID;
+            Write(message + "<br>");
+
+            // Add a log entry in the SSJS Add DE
+            logDE.Rows.Add({
+                Message: message
+            });
+
+            totalProcessed++;
+        }
+    }
+
+    Write("Finished processing total records: " + totalProcessed + "<br>");
+
+} catch (e) {
+    var errorMessage = e.toString();
+    errorLogDE.Rows.Add({
+        ErrorMessage: errorMessage,
+        Automation_Name: automationName,
+        Comment: "General Error"
+    });
+    Write("Error: " + errorMessage + "<br>");
+}
+</script>
+
+
+
+---
+
+
+<script runat="server">
+Platform.Load("Core", "1.1");
+
+try {
+    var mainDE = DataExtension.Init("356A0A32-3144-4047-8371-42EC0F142AC8");
+    var stagingDE = DataExtension.Init("3558C9D9-1D2C-4EC3-8508-1FFCA8B391DF");
+    var errorLogDE = DataExtension.Init("3A45121F-8BCD-4FD6-A9FA-01223B8FC667");
     var automationName = "MeetingScheduler_Main Deletion SSJS";
 
     // Get all unprocessed records from staging DE

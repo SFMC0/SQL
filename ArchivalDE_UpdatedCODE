@@ -1,3 +1,97 @@
+--Pro Version 
+
+<script runat="server">
+Platform.Load("Core", "1.1");
+
+// === CONFIGURATION ===
+var CONFIG = {
+    mainDE: DataExtension.Init("356A0A32-3144-4047-8371-42EC0F142AC8"),
+    stagingDE: DataExtension.Init("3558C9D9-1D2C-4EC3-8508-1FFCA8B391DF"),
+    errorLogDE: DataExtension.Init("3A45121F-8BCD-4FD6-A9FA-01223B8FC667"),
+    logDE: DataExtension.Init("SSJS Add DE"),
+    keyField: "LSSchedulerEmail__c:ID",
+    processedField: "Is_Processed",
+    automationName: "MeetingScheduler_Main Deletion SSJS"
+};
+
+// === HELPERS ===
+function logMessage(msg) {
+    Write(msg + "<br>");
+    CONFIG.logDE.Rows.Add({ Message: msg });
+}
+
+function logError(message, comment) {
+    CONFIG.errorLogDE.Rows.Add({
+        ErrorMessage: message,
+        Automation_Name: CONFIG.automationName,
+        Comment: comment || ""
+    });
+}
+
+// === CORE FUNCTIONS ===
+function getUnprocessedRecords() {
+    return CONFIG.stagingDE.Rows.Retrieve({
+        Property: CONFIG.processedField,
+        SimpleOperator: "equals",
+        Value: false
+    });
+}
+
+function processRecord(record) {
+    var recordID = record[CONFIG.keyField];
+
+    // Delete from main DE
+    CONFIG.mainDE.Rows.Remove([CONFIG.keyField], [recordID]);
+
+    // Update as processed
+    CONFIG.stagingDE.Rows.Update(
+        { [CONFIG.processedField]: true },
+        [CONFIG.keyField],
+        [recordID]
+    );
+
+    logMessage("Processed record ID: " + recordID);
+}
+
+function processAllRecords() {
+    var totalProcessed = 0;
+    var keepGoing = true;
+
+    while (keepGoing) {
+        var records = getUnprocessedRecords();
+
+        if (!records || records.length === 0) {
+            if (totalProcessed === 0) {
+                var msg = "No unprocessed records found in staging DE.";
+                logMessage(msg);
+                logError(msg, "Info only - no action required");
+            }
+            break;
+        }
+
+        for (var i = 0; i < records.length; i++) {
+            processRecord(records[i]);
+            totalProcessed++;
+        }
+    }
+
+    logMessage("Finished processing total records: " + totalProcessed);
+}
+
+// === EXECUTION ===
+try {
+    processAllRecords();
+} catch (e) {
+    var errorMsg = e && e.toString ? e.toString() : "Unknown runtime error";
+    logError(errorMsg, "Unhandled exception");
+    Write("Error: " + errorMsg + "<br>");
+}
+</script>
+
+
+
+
+--
 <script runat="server">
 Platform.Load("Core", "1.1");
 

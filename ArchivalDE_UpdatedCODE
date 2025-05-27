@@ -96,3 +96,151 @@ try {
     });
 }
 </script>
+
+
+
+
+<script runat="server">
+Platform.Load("Core", "1.1");
+
+// === CONFIGURATION ===
+var config = {
+    mainDE: DataExtension.Init("356A0A32-3144-4047-8371-42EC0F142AC8"),
+    stagingDE: DataExtension.Init("3558C9D9-1D2C-4EC3-8508-1FFCA8B391DF"),
+    archiveDE: DataExtension.Init("437383C8-86C1-4DBE-8411-3D608399B606"),
+    errorLogDE: DataExtension.Init("3A45121F-8BCD-4FD6-A9FA-01223B8FC667"),
+    automationName: "MeetingScheduler_Main Deletion SSJS"
+};
+
+/**
+ * Logs an error message to the error logging Data Extension
+ * @param {string} message - The error message
+ * @param {string} comment - Optional comment for context
+ */
+function logError(message, comment) {
+    config.errorLogDE.Rows.Add({
+        ErrorMessage: message,
+        Automation_Name: config.automationName,
+        Comment: comment || ""
+    });
+    Write("Logged Error: " + message + "<br>");
+}
+
+/**
+ * Marks a record as processed in the staging Data Extension
+ * @param {string} recordID - The ID of the record to mark processed
+ */
+function markAsProcessed(recordID) {
+    var updated = config.stagingDE.Rows.Update(
+        { "Is_Processed": true },
+        ["LSSchedulerEmail__c"],  // <-- Replace with your actual field name here
+        [recordID]
+    );
+    Write("Marked record processed: " + recordID + "<br>");
+}
+
+/**
+ * Retrieves all records from staging DE where Is_Processed = false
+ * @returns {Array} Array of unprocessed records
+ */
+function getUnprocessedRecords() {
+    var filter = {
+        Property: "Is_Processed",
+        SimpleOperator: "equals",
+        Value: false
+    };
+    var records = config.stagingDE.Rows.Retrieve(filter);
+    Write("Retrieved " + (records ? records.length : 0) + " unprocessed records<br>");
+    return records;
+}
+
+/**
+ * Checks if the archive DE contains the given record ID
+ * @param {string} recordID - The ID to check in archive DE
+ * @returns {boolean} True if record exists in archive DE, false otherwise
+ */
+function archiveHasRecord(recordID) {
+    var archiveRecords = config.archiveDE.Rows.Lookup("LSSchedulerEmail__c", recordID);  // <-- Replace with your actual field name here
+    var exists = archiveRecords && archiveRecords.length > 0;
+    Write("Archive check for " + recordID + ": " + (exists ? "Found" : "Not Found") + "<br>");
+    return exists;
+}
+
+/**
+ * Deletes the record from the main DE by ID
+ * @param {string} recordID - The ID of the record to delete
+ * @returns {boolean} True if deletion was successful, false otherwise
+ */
+function deleteFromMain(recordID) {
+    var result = config.mainDE.Rows.Remove(["LSSchedulerEmail__c"], [recordID]);  // <-- Replace with your actual field name here
+    Write("Deleted from main DE: " + recordID + "<br>");
+    return result;
+}
+
+/**
+ * Processes a single record:
+ *  - Checks if record exists in archive DE
+ *  - Deletes from main DE if found
+ *  - Logs error if not found in archive DE
+ *  - Marks record as processed in staging DE
+ * @param {Object} record - The record object from staging DE
+ */
+function processRecord(record) {
+    var recordID = record["LSSchedulerEmail__c"];  // <-- Replace with your actual field name here
+    Write("Processing record: " + recordID + "<br>");
+    if (archiveHasRecord(recordID)) {
+        deleteFromMain(recordID);
+    } else {
+        logError("Record " + recordID + " not found in Archive DE.", "Missing in Archive");
+    }
+    markAsProcessed(recordID);
+}
+
+/**
+ * Main loop to delete all unprocessed records in staging DE
+ */
+function deleteAllRecords() {
+    var processedCount = 0;
+    var moreRecords = true;
+
+    while (moreRecords) {
+        var unprocessedRecords = getUnprocessedRecords();
+
+        if (!unprocessedRecords || unprocessedRecords.length === 0) {
+            if (processedCount === 0) {
+                logError("No unprocessed records found in staging DE.");
+            }
+            moreRecords = false;
+            Write("No more unprocessed records to process.<br>");
+            break;
+        }
+
+        for (var i = 0; i < unprocessedRecords.length; i++) {
+            processRecord(unprocessedRecords[i]);
+            processedCount++;
+        }
+    }
+
+    Write("Total records processed: " + processedCount + "<br>");
+}
+
+// === EXECUTE ===
+try {
+    deleteAllRecords();
+} catch (ex) {
+    var errorMessage;
+    try {
+        errorMessage = ex.toString();
+    } catch (e2) {
+        errorMessage = "Unknown error occurred.";
+    }
+
+    config.errorLogDE.Rows.Add({
+        ErrorMessage: errorMessage,
+        Automation_Name: config.automationName,
+        Comment: "General Error"
+    });
+    Write("General error: " + errorMessage + "<br>");
+}
+</script>
+

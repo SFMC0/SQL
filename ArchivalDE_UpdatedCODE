@@ -1,3 +1,199 @@
+ds -
+<script runat="server">
+Platform.Load("Core", "1.1.1");
+
+// ===== CONFIGURATION =====
+var CONFIG = {
+    // Data Extensions
+    de: {
+        main: DataExtension.Init("356A0A32-3144-4047-8371-42EC0F142AC8"),
+        staging: DataExtension.Init("3558C9D9-1D2C-4EC3-8508-1FFCA8B391DF"),
+        errorLog: DataExtension.Init("3A45121F-8BCD-4FD6-A9FA-01223B8FC667"),
+        activityLog: DataExtension.Init("SSJS Add DE")
+    },
+    
+    // Field Names
+    fields: {
+        key: "LSSchedulerEmail__c:ID",
+        processed: "Is_Processed"
+    },
+    
+    // Processing Parameters
+    batchSize: 1000, // Records per batch
+    maxRuntime: 8 * 60, // 8 minutes (in seconds)
+    safeMode: true, // Set to false for actual processing
+    
+    // System
+    automationName: "MeetingScheduler_Main Deletion SSJS",
+    version: "2.1"
+};
+
+// ===== LOGGING SYSTEM =====
+var Logger = {
+    log: function(message, level) {
+        try {
+            CONFIG.de.activityLog.Rows.Add({
+                Message: String(message).substr(0, 3999),
+                Level: level || "INFO",
+                Timestamp: Now(),
+                Automation: CONFIG.automationName,
+                Version: CONFIG.version
+            });
+            Write("<li>" + String(message) + "</li>");
+        } catch (e) {
+            Platform.Function.Write("<log failed> " + String(message) + "\n");
+        }
+    },
+    
+    error: function(message, details, recordId) {
+        try {
+            CONFIG.de.errorLog.Rows.Add({
+                ErrorMessage: String(message).substr(0, 1999),
+                Details: String(details).substr(0, 1999),
+                RecordID: String(recordId || "").substr(0, 50),
+                Automation: CONFIG.automationName,
+                Timestamp: Now(),
+                Version: CONFIG.version
+            });
+            Write("<li style='color:red'>ERROR: " + String(message) + "</li>");
+        } catch (e) {
+            Platform.Function.Write("<error log failed> " + String(message) + "\n");
+        }
+    }
+};
+
+// ===== BATCH PROCESSOR =====
+var BatchProcessor = {
+    process: function() {
+        var startTime = Now();
+        var totalProcessed = 0;
+        var lastId = "";
+        var batchesProcessed = 0;
+        
+        Logger.log("Starting processing in " + (CONFIG.safeMode ? "SAFE MODE" : "LIVE MODE"));
+        
+        while (this.shouldContinue(startTime, batchesProcessed)) {
+            var batch = this.getNextBatch(lastId);
+            if (!batch || batch.length === 0) break;
+            
+            var result = this.processBatch(batch);
+            totalProcessed += result.processedCount;
+            lastId = result.lastId;
+            batchesProcessed++;
+        }
+        
+        Logger.log("Processing complete. Total records: " + totalProcessed + 
+                  " | Batches: " + batchesProcessed + 
+                  " | Time: " + DateDiff(startTime, Now(), "SECOND") + "s");
+        
+        return totalProcessed;
+    },
+    
+    getNextBatch: function(lastId) {
+        var filter = {
+            Property: CONFIG.fields.processed,
+            SimpleOperator: "equals",
+            Value: false
+        };
+        
+        if (lastId) {
+            filter = {
+                LeftOperand: filter,
+                LogicalOperator: "AND",
+                RightOperand: {
+                    Property: CONFIG.fields.key,
+                    SimpleOperator: "greaterThan",
+                    Value: lastId
+                }
+            };
+        }
+        
+        try {
+            return CONFIG.de.staging.Rows.Retrieve(filter, CONFIG.batchSize);
+        } catch (e) {
+            Logger.error("Failed to retrieve batch", e.message);
+            return null;
+        }
+    },
+    
+    processBatch: function(batch) {
+        var processedCount = 0;
+        var lastId = "";
+        var idsToProcess = [];
+        var updatePayload = [];
+        
+        // Prepare batch data
+        for (var i = 0; i < batch.length; i++) {
+            var recordId = batch[i][CONFIG.fields.key];
+            idsToProcess.push(recordId);
+            updatePayload.push({
+                Keys: { [CONFIG.fields.key]: recordId },
+                Values: { [CONFIG.fields.processed]: 1 }
+            });
+            lastId = recordId;
+        }
+        
+        // Process batch
+        if (!CONFIG.safeMode) {
+            try {
+                // 1. Mark as processed first (safer)
+                var updateResult = CONFIG.de.staging.Rows.Update(updatePayload);
+                
+                // 2. Delete from main DE
+                if (updateResult && updateResult.status === "OK") {
+                    var deleteResult = CONFIG.de.main.Rows.Remove(
+                        [CONFIG.fields.key], 
+                        idsToProcess
+                    );
+                    processedCount = idsToProcess.length;
+                }
+            } catch (e) {
+                Logger.error("Batch processing failed", e.message, lastId);
+            }
+        } else {
+            Logger.log("[SAFE MODE] Would process batch with " + batch.length + " records");
+            processedCount = batch.length; // Count but don't process in safe mode
+        }
+        
+        return {
+            processedCount: processedCount,
+            lastId: lastId
+        };
+    },
+    
+    shouldContinue: function(startTime, batchesProcessed) {
+        // Check max runtime
+        if (DateDiff(startTime, Now(), "SECOND") > CONFIG.maxRuntime) {
+            Logger.log("Stopping due to max runtime reached");
+            return false;
+        }
+        
+        // Check max batches (safety)
+        if (batchesProcessed >= 50) {
+            Logger.log("Stopping after maximum batches processed");
+            return false;
+        }
+        
+        return true;
+    }
+};
+
+// ===== MAIN EXECUTION =====
+try {
+    Logger.log("Script initialization complete - v" + CONFIG.version);
+    var processedCount = BatchProcessor.process();
+    
+    if (processedCount === 0) {
+        Logger.log("No unprocessed records found", "WARNING");
+    }
+} catch (e) {
+    Logger.error("Fatal error in main execution", Stringify(e));
+} finally {
+    Logger.log("Script execution completed");
+}
+</script>
+-------
+
 function processRecord(record) {
     try {
         var recordID = record[CONFIG.keyField];

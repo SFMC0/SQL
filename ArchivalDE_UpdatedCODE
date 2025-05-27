@@ -1,3 +1,32 @@
+function processRecord(record) {
+    try {
+        var recordID = record[CONFIG.keyField];
+
+        if (!recordID) {
+            logMessage("Skipped record with empty ID");
+            return;
+        }
+
+        // Delete from Main DE
+        var deleted = CONFIG.mainDE.Rows.Remove([CONFIG.keyField], [recordID]);
+        logMessage("Deleted rows from main DE: " + deleted);
+
+        // Mark as processed in staging DE
+        var updated = CONFIG.stagingDE.Rows.Update(
+            { [CONFIG.processedField]: true },
+            [CONFIG.keyField],
+            [recordID]
+        );
+        logMessage("Updated staging DE rows: " + updated);
+
+        logMessage("Processed record ID: " + recordID);
+
+    } catch (e) {
+        logMessage("Error in processRecord(): " + e.toString());
+    }
+}
+
+
 --Pro Version 
 
 <script runat="server">

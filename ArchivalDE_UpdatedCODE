@@ -2,6 +2,64 @@
 Platform.Load("Core", "1.1");
 
 try {
+    var mainDE = DataExtension.Init("356A0A32-3144-4047-8371-42EC0F142AC8");
+    var stagingDE = DataExtension.Init("3558C9D9-1D2C-4EC3-8508-1FFCA8B391DF");
+    var errorLogDE = DataExtension.Init("3A45121F-8BCD-4FD6-A9FA-01223B8FC667");
+    var automationName = "MeetingScheduler_Main Deletion SSJS";
+
+    // Get all unprocessed records from staging DE
+    var filter = {
+        Property: "Is_Processed",
+        SimpleOperator: "equals",
+        Value: false
+    };
+    var records = stagingDE.Rows.Retrieve(filter);
+
+    if (!records || records.length === 0) {
+        // Log no records found
+        errorLogDE.Rows.Add({
+            ErrorMessage: "No unprocessed records found in staging DE.",
+            Automation_Name: automationName,
+            Comment: ""
+        });
+        Write("No unprocessed records to process.<br>");
+    } else {
+        // Loop through each record
+        for (var i = 0; i < records.length; i++) {
+            var recordID = records[i]["LSSchedulerEmail__c"]; // Replace with your actual field name
+
+            // Delete from main DE
+            mainDE.Rows.Remove(["LSSchedulerEmail__c"], [recordID]);
+
+            // Mark as processed in staging DE
+            stagingDE.Rows.Update(
+                { "Is_Processed": true },
+                ["LSSchedulerEmail__c"],
+                [recordID]
+            );
+
+            Write("Processed record ID: " + recordID + "<br>");
+        }
+        Write("Finished processing " + records.length + " records.<br>");
+    }
+
+} catch (e) {
+    var errorMessage = e.toString();
+    errorLogDE.Rows.Add({
+        ErrorMessage: errorMessage,
+        Automation_Name: "MeetingScheduler_Main Deletion SSJS",
+        Comment: "General Error"
+    });
+    Write("Error: " + errorMessage + "<br>");
+}
+</script>
+
+
+
+<script runat="server">
+Platform.Load("Core", "1.1");
+
+try {
     // === CONFIGURATION ===
     var config = {
         mainDE: DataExtension.Init("356A0A32-3144-4047-8371-42EC0F142AC8"),

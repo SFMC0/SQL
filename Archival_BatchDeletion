@@ -1,0 +1,124 @@
+<script runat="server">
+Platform.Load("Core", "1.1");
+
+var proxy = new Script.Util.WSProxy();
+
+var config = {
+    mainDEKey: "356A0A32-3144-4047-8371-42EC0F142AC8",          // Main DE External Key
+    stagingDEKey: "3558C9D9-1D2C-4EC3-8508-1FFCA8B391DF",       // Staging DE External Key
+    archiveDEKey: "437383C8-86C1-4DBE-8411-3D608399B606",       // Archive DE External Key
+    errorLogDEKey: "3A45121F-8BCD-4FD6-A9FA-01223B8FC667",      // Error Log DE External Key
+    idField: "LSSchedulerEmail__c:Id",
+    isProcessedField: "Is_Processed",
+    errorSource: "MeetingScheduler_Main Deletion SSJS"
+};
+
+try {
+    // Initialize Data Extensions via SSJS Core library
+    var stagingDE = DataExtension.Init(config.stagingDEKey);
+    var archiveDE = DataExtension.Init(config.archiveDEKey);
+    var errorLogDE = DataExtension.Init(config.errorLogDEKey);
+
+    // Retrieve all unprocessed records from staging DE
+    var filter = {
+        Property: config.isProcessedField,
+        SimpleOperator: "equals",
+        Value: false
+    };
+
+    var stagingRecords = stagingDE.Rows.Retrieve(filter);
+
+    if (!stagingRecords || stagingRecords.length === 0) {
+        logError("No unprocessed records found in staging DE.", "");
+        return;
+    }
+
+    // Retrieve all archive DE records — can be optimized for large DEs by filtering if needed
+    var archiveRecords = archiveDE.Rows.Retrieve();
+
+    // Build a Set (object keys) of archived IDs for fast lookup
+    var archiveIdSet = {};
+    if (archiveRecords) {
+        for (var a = 0; a < archiveRecords.length; a++) {
+            var archId = archiveRecords[a][config.idField];
+            archiveIdSet[archId] = true;
+        }
+    }
+
+    // Prepare batch delete payload for WSProxy
+    var batches = [];
+
+    for (var i = 0; i < stagingRecords.length; i++) {
+        var rec = stagingRecords[i];
+        var recordID = rec[config.idField];
+
+        if (archiveIdSet[recordID]) {
+            var keys = {};
+            keys[config.idField] = recordID;
+
+            batches.push({
+                CustomerKey: config.mainDEKey,
+                Keys: wsPack(keys)
+            });
+        } else {
+            // Log error if not in archive
+            logError("Record ID " + recordID + " not found in Archive DE.", "Missing in archive");
+
+            // Mark as processed anyway to avoid reprocessing forever
+            stagingDE.Rows.Update(
+                { [config.isProcessedField]: true },
+                [config.idField],
+                [recordID]
+            );
+        }
+    }
+
+    if (batches.length > 0) {
+        // Batch delete from main DE
+        var deleteResult = proxy.deleteBatch("DataExtensionObject", batches);
+
+        if (deleteResult && deleteResult.OverallStatus !== "OK") {
+            logError("Batch delete failed: " + Stringify(deleteResult), "");
+        } else {
+            // Mark deleted staging records as processed
+            for (var j = 0; j < batches.length; j++) {
+                var recId = batches[j].Keys[0].Value;
+                stagingDE.Rows.Update(
+                    { [config.isProcessedField]: true },
+                    [config.idField],
+                    [recId]
+                );
+            }
+        }
+    } else {
+        Write("No matching records to delete.");
+    }
+
+} catch (ex) {
+    logError("Exception: " + Stringify(ex), "General exception");
+}
+
+function logError(msg, comment) {
+    try {
+        var errorLogDE = DataExtension.Init(config.errorLogDEKey);
+        errorLogDE.Rows.Add({
+            ErrorMessage: msg,
+            Automation_Name: config.errorSource,
+            Comment: comment || ""
+        });
+    } catch (e) {
+        Write("Failed to log error: " + Stringify(e));
+    }
+}
+
+function wsPack(obj) {
+    var out = [];
+    for (var k in obj) {
+        out.push({
+            Name: k,
+            Value: obj[k]
+        });
+    }
+    return out;
+}
+</script>

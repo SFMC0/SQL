@@ -1,0 +1,68 @@
+<script runat="server">
+Platform.Load("Core", "1.1");
+
+try {
+
+    function DeleteRecords() {
+        var mainDE = DataExtension.Init("356A0A32-3144-4047-8371-42EC0F142AC8"); // data extension for MeetingScheduler_Main_NEW
+        var deleteDE = DataExtension.Init("3558C9D9-1D2C-4EC3-8508-1FFCA8B391DF"); // data extension for temp data extension (DE will be used to store marked records for deletion)
+        var archiveDE = DataExtension.Init("437383C8-86C1-4DBE-8411-3D608399B606"); // data extension for archive_main
+
+        var deleteDERecords = deleteDE.Rows.Retrieve(); // loading deletable records - this will be an OVERWRITTEN DE, meaning the data won't always grow/shrink.
+
+        var errorLogDE = DataExtension.Init("3A45121F-8BCD-4FD6-A9FA-01223B8FC667"); // additional DE for errors from Archive <- need to add in additional data extension
+
+        var recordCount = 0;
+        var recordsSkipped = 0;
+
+        var tempDelete = []; // entire temp data extension
+        var tempArchive = []; // subset of archive, with a filter of IDs in temp data extension
+      
+        Array.includes = function(val, arr) {
+            for(i = 0; i < arr.length; i++) {
+                if (!ret || ret == false)
+                    {ret = val == arr[i] ? true: false;}
+            }
+            return ret;
+        }
+
+        // if no records are in the delete DE, exit the SSJS.
+        if (deleteDERecords.length == 0) {
+            var firstError = errorLogDE.Rows.Add({ErrorMessage: "No records in Temp Main DE.", Automation_Name: "MeetingScheduler_Main Deletion SSJS"});
+            return;
+        }
+
+        // loading deletable records into the object
+        for (var i = 0; i < deleteDERecords.length; i++) { // 3 records in the temp DE
+            tempDelete[i] = deleteDERecords[i]["LSSchedulerEmail__c:Id"]; // filling object with record IDs, received from main's temp DE
+            var archivedRecordsByID = archiveDE.Rows.Lookup("LSSchedulerEmail__c:Id", tempDelete[i]);
+            if (archivedRecordsByID != null && archivedRecordsByID.length > 0) {
+                for (var k = 0; k < archivedRecordsByID.length; k++) {
+                    tempArchive.push(archivedRecordsByID[k]["LSSchedulerEmail__c:Id"]);
+                }
+            }
+        }
+
+        if (tempArchive.length == 0 && deleteDERecords.length != 0) { // if all IDs are not found in archive...
+            var secondError = errorLogDE.Rows.Add({ErrorMessage: "All for-deletion records were not found in Archive. Please check the records.", Automation_Name: "MeetingScheduler_Main Deletion SSJS"});
+        } else {
+            for (var j = 0; j < deleteDERecords.length; j++) {
+                var recordID = deleteDERecords[j]["LSSchedulerEmail__c:Id"];
+                if (Array.includes(recordID, tempArchive)) { //if Id exists in tempArchive
+                    deleteResult = mainDE.Rows.Remove(["LSSchedulerEmail__c:Id"], [recordID]);
+                    Write("Currently deleting " + recordID + " from Main.<br>"); // <-- cloud page stuff, remove once deployed
+                } else {
+                    var fourthError = errorLogDE.Rows.Add({ErrorMessage: "Record " + deleteDERecords[j]["LSSchedulerEmail__c:Id"] + " was not found in archive data extension.", Automation_Name: "MeetingScheduler_Main Deletion SSJS"});
+                }
+            }
+        }
+    }
+
+    DeleteRecords();
+
+} catch (ex) {
+    var errorLogDE = DataExtension.Init("3A45121F-8BCD-4FD6-A9FA-01223B8FC667");
+    var thirdError = errorLogDE.Rows.Add({ErrorMessage: ex, Automation_Name: "MeetingScheduler_Main Archival SSJS", Comment: "General Error"});
+}
+
+</script>
